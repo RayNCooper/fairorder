@@ -1,0 +1,47 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://fairorder:fairorder@db:5432/fairorder"
+      EMAIL_PROVIDER: "smtp"
+      SMTP_HOST: "mailpit"
+      SMTP_PORT: "1025"
+      SMTP_FROM: "noreply@fairorder.local"
+      MAGIC_LINK_BASE_URL: "http://localhost:3000"
+      NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      DB_HOST: "db"
+      DB_PORT: "5432"
+      DB_USER: "fairorder"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fairorder
+      POSTGRES_PASSWORD: fairorder
+      POSTGRES_DB: fairorder
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fairorder"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    profiles:
+      - mail
+
+volumes:
+  pgdata:

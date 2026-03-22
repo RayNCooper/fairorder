@@ -1,0 +1,189 @@
+// FairOrder Product App Schema
+// Self-contained schema for the open-source canteen ordering app
+// Includes user accounts, auth, locations, menus, and orders
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  emailVerified Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  locations     Location[]
+  sessions      Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token     String   @unique
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Location {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  operatingHours Json?
+  timezone String @default("Europe/Berlin")
+
+  orderLeadTimeMinutes Int @default(10)
+  maxActiveOrders      Int @default(50)
+
+  adminToken   String @unique @default(cuid())
+  displayToken String @unique @default(cuid())
+
+  // Product app fields
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orderingEnabled Boolean  @default(false)
+  isPublic        Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categories Category[]
+  menuItems  MenuItem[]
+  orders     Order[]
+
+  @@index([userId])
+}
+
+model Category {
+  id         String   @id @default(cuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  name      String
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  menuItems MenuItem[]
+
+  @@index([locationId])
+}
+
+model MenuItem {
+  id         String   @id @default(cuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  name        String
+  description String?
+  price       Decimal @db.Decimal(10, 2)
+  imageUrl    String?
+
+  isAvailable Boolean @default(true)
+  prepTimeMinutes Int?
+  sortOrder Int @default(0)
+
+  calories      Int?
+  protein       Float?
+  carbs         Float?
+  fat           Float?
+  fiber         Float?
+  sugar         Float?
+  sodium        Int?
+  servingSize   String?
+
+  ingredients  String[]
+  allergens    String[]
+  dietaryTags  String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
+
+  @@index([locationId])
+  @@index([categoryId])
+}
+
+model Order {
+  id         String   @id @default(cuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  orderNumber Int
+  customerName String
+  customerNote String?
+
+  requestedPickupTime DateTime
+  estimatedReadyTime  DateTime?
+
+  status OrderStatus @default(PENDING)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  prepStartedAt DateTime?
+  readyAt       DateTime?
+  completedAt   DateTime?
+
+  items OrderItem[]
+
+  @@index([locationId, status])
+  @@index([locationId, createdAt])
+  @@index([locationId, orderNumber])
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+
+  quantity Int @default(1)
+  unitPrice Decimal @db.Decimal(10, 2)
+  notes String?
+
+  @@index([orderId])
+}
+
+// NOTE: NewsletterSignup is unused by product-app (belongs to the marketing site).
+// Kept for shared-DB compatibility. Remove after product-app has its own database.
+model NewsletterSignup {
+  id     String  @id @default(cuid())
+  email  String  @unique
+  source String?
+
+  agreedToMarketing      Boolean
+  agreedToDataProtection Boolean
+  consentTimestamp       DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
