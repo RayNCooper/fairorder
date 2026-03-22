@@ -7,13 +7,18 @@ Open-source canteen product app. Operators sign up, import menus via OCR, and ge
 ## Commands
 
 ```bash
-pnpm dev          # Start development server
-pnpm build        # Production build (includes prisma generate)
-pnpm start        # Start production server
+pnpm dev          # Dev server (dotenvx — maintainers)
+pnpm dev:local    # Dev server (plain .env — contributors)
+pnpm build        # Production build (dotenvx)
+pnpm build:local  # Production build (plain .env)
+pnpm start        # Start production server (dotenvx)
+pnpm start:local  # Start production server (plain .env)
 pnpm lint         # Run ESLint
+pnpm test         # Run Vitest test suite
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:migrate   # Run migrations (dev)
 pnpm db:push      # Push schema to DB without migration
+pnpm db:seed      # Seed demo data (idempotent)
 ```
 
 ## Tech Stack
@@ -22,7 +27,8 @@ pnpm db:push      # Push schema to DB without migration
 - **Database:** PostgreSQL with Prisma ORM v7 (shared with marketing site)
 - **UI:** Tailwind CSS v4, Radix UI, shadcn/ui, 0px border-radius
 - **Auth:** Hand-rolled magic link auth with httpOnly session cookies
-- **Env:** dotenvx encrypted `.env` + `.env.production` committed to git; `.env.keys` gitignored
+- **Email:** Pluggable via `EMAIL_PROVIDER` env var — plunk (ESP), smtp (nodemailer), console (dev)
+- **Env:** dotenvx for maintainers; plain `.env` via `:local` scripts for contributors. See `.env.example`
 - **OCR:** Tesseract.js (client-side, German language pack) — NOT OpenAI Vision
 - **Fonts:** Plus Jakarta Sans (headings/body), JetBrains Mono (numbers/metadata)
 - **Package Manager:** pnpm
@@ -36,19 +42,24 @@ app/
   dashboard/      # Operator admin (sidebar nav on desktop, bottom tabs on mobile)
   api/auth/       # Magic link, verify, logout, session
   api/locations/  # Location CRUD
+  api/categories/ # Category CRUD
+  api/menu-items/ # Menu item CRUD + bulk import
+  api/orders/     # Order status updates
+  api/health/     # Health check endpoint
 components/
   auth/           # Magic link form, auth feedback
-  dashboard/      # Nav component
-  onboarding/     # Setup form
+  dashboard/      # Nav, menu manager, order list, settings, analytics
+  onboarding/     # Setup form, OCR menu import, QR complete
   ui/             # shadcn/ui components
 lib/
   auth.ts         # Session management (create, get, delete, cookies)
   db.ts           # Prisma client singleton
-  email.ts        # Plunk email sending
+  email.ts        # Email sending (pluggable: plunk/smtp/console)
   magic-link.ts   # Magic link token creation and verification
   utils.ts        # cn() helper
 prisma/
-  schema.prisma   # Extended schema (User, Session + shared models)
+  schema.prisma   # Standalone schema (User, Session, Location, Menu, Orders)
+  seed.ts         # Idempotent demo data seeder
 ```
 
 ## Design System
