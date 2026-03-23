@@ -5,18 +5,11 @@ import { createPaymentIntent } from "@/lib/payment";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { locationId, amount, orderId, customerName } = body;
+    const { locationId, orderId } = body;
 
     if (!locationId || typeof locationId !== "string") {
       return NextResponse.json(
         { error: "Standort-ID ist erforderlich." },
-        { status: 400 }
-      );
-    }
-
-    if (!amount || typeof amount !== "number" || amount <= 0) {
-      return NextResponse.json(
-        { error: "Ungültiger Betrag." },
         { status: 400 }
       );
     }
@@ -48,11 +41,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Load order and verify it belongs to this location
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+
+    if (!order || order.locationId !== locationId) {
+      return NextResponse.json(
+        { error: "Bestellung nicht gefunden." },
+        { status: 404 }
+      );
+    }
+
+    if (order.paymentStatus === "paid") {
+      return NextResponse.json(
+        { error: "Bestellung wurde bereits bezahlt." },
+        { status: 400 }
+      );
+    }
+
+    // Compute amount server-side from order items (in cents)
+    const amount = order.items.reduce(
+      (sum, item) =>
+        sum + Math.round(Number(item.unitPrice) * 100) * item.quantity,
+      0
+    );
+
+    if (amount <= 0) {
+      return NextResponse.json(
+        { error: "Ungültiger Bestellbetrag." },
+        { status: 400 }
+      );
+    }
+
     const result = await createPaymentIntent({
       amount,
       currency: "eur",
       orderId,
-      customerName: customerName || "Gast",
+      customerName: order.customerName || "Gast",
     });
 
     if (!result.success) {
