@@ -19,16 +19,10 @@ export default function Home() {
 
         <div className="flex flex-col gap-3">
           <Link
-            href="/register"
+            href="/login"
             className="inline-flex h-11 items-center justify-center bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Jetzt starten
-          </Link>
-          <Link
-            href="/login"
-            className="inline-flex h-11 items-center justify-center border border-border bg-background px-6 text-sm font-medium transition-colors hover:bg-accent"
-          >
-            Einloggen
           </Link>
         </div>
       </div>
