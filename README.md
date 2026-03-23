@@ -17,11 +17,12 @@ Guests scan, order, kitchen prepares. Self-host in one command with Docker Compo
 - **Multi-Location** — One account, many locations
 
 ### For Guests
-- **QR Code Ordering** — Each location gets a scannable menu page
+- **Public Menu Page** — Each location gets a shareable URL (`/your-location`) showing the live menu
+- **QR Code Ordering** — Scan to view the menu and place orders, no app required
 - **No App Required** — Works in any mobile browser
 
 ### For Kitchens
-- **Kitchen Display** — Wall-mounted screen for real-time order management
+- **Kitchen Display** — Token-authenticated display at `/display/:token` for wall-mounted screens
 - **Order Workflow** — Simple status progression from received to pickup
 
 ### Order Workflow
@@ -95,12 +96,15 @@ fairorder/
 ├── app/
 │   ├── (auth)/           # Login, register, verify-email
 │   ├── (onboarding)/     # 3-step wizard: setup, menu-import, complete
+│   ├── [slug]/           # Public menu page (guest-facing, no auth)
+│   ├── display/[token]/  # Kitchen display (token-authenticated)
 │   ├── dashboard/        # Operator admin panel
 │   └── api/              # REST API routes
 ├── components/
 │   ├── ui/               # shadcn/ui design system (0px radius)
 │   ├── auth/             # Magic link forms
 │   ├── dashboard/        # Nav, menu manager, order list
+│   ├── display/          # Kitchen display components
 │   └── onboarding/       # Setup form, OCR import, QR display
 ├── lib/
 │   ├── auth.ts           # Session management

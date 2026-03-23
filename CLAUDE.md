@@ -2,7 +2,17 @@
 
 ## Project Overview
 
-Open-source canteen product app. Operators sign up, import menus via OCR, and get a live QR-scannable menu page. Built as a separate app sharing the same PostgreSQL database with the private marketing site.
+Open-source canteen ordering system, built in the open on GitHub. Operators sign up, import menus via OCR, and get a live QR-scannable menu page. Guests scan, browse, and order — no app needed. Built as a standalone app sharing the same PostgreSQL database with the private marketing site.
+
+## Built in the Open
+
+FairOrder is developed publicly — code, decisions, and progress are all visible to anyone. This shapes how we write everything:
+
+- **Commit messages & PRs** — Write for someone reading the git log six months from now. Explain *why*, not just *what*. No internal shorthand or ticket references without context.
+- **Code comments** — Only where the logic isn't obvious. When you do comment, write for a contributor who just cloned the repo.
+- **Documentation** — Keep it contributor-friendly. A developer should be able to go from `git clone` to running the app in under 5 minutes by following the docs.
+- **No internal jargon** — Avoid references to internal tools, private channels, or team-specific context. Everything in the repo should make sense to an outside reader.
+- **Design decisions** — When making architectural or UX choices, document the reasoning in the PR description. Future contributors (and future us) will thank you.
 
 ## Commands
 
@@ -39,6 +49,8 @@ pnpm db:seed      # Seed demo data (idempotent)
 app/
   (auth)/         # Login, register, verify-email (centered, no navbar)
   (onboarding)/   # 3-step wizard (setup, menu-import, complete)
+  [slug]/         # Public menu page (guest-facing, no auth)
+  display/[token]/ # Kitchen display (token-authenticated)
   dashboard/      # Operator admin (sidebar nav on desktop, bottom tabs on mobile)
   api/auth/       # Magic link, verify, logout, session
   api/locations/  # Location CRUD
@@ -49,6 +61,7 @@ app/
 components/
   auth/           # Magic link form, auth feedback
   dashboard/      # Nav, menu manager, order list, settings, analytics
+  display/        # Kitchen display (real-time order board)
   onboarding/     # Setup form, OCR menu import, QR complete
   ui/             # shadcn/ui components
 lib/
