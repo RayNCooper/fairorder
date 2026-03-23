@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const PROTECTED_PATHS = ["/dashboard", "/setup", "/menu-import", "/complete"];
-const AUTH_PATHS = ["/login", "/register"];
+const AUTH_PATHS = ["/login"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -31,6 +31,5 @@ export const config = {
     "/menu-import",
     "/complete",
     "/login",
-    "/register",
   ],
 };

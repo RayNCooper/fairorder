@@ -10,7 +10,7 @@ export type MarqueeProps = HTMLAttributes<HTMLDivElement>;
 export const Marquee = ({ className, ...props }: MarqueeProps) => (
   <div
     className={cn('relative w-full overflow-hidden', className)}
-    {...(props as any)}
+    {...props}
   />
 );
 
@@ -26,7 +26,7 @@ export const MarqueeContent = ({
     autoFill={autoFill}
     loop={loop}
     pauseOnHover={pauseOnHover}
-    {...(props as any)}
+    {...props}
   />
 );
 
@@ -45,7 +45,7 @@ export const MarqueeFade = ({
       side === 'left' ? 'left-0 bg-gradient-to-r' : 'right-0 bg-gradient-to-l',
       className
     )}
-    {...(props as any)}
+    {...props}
   />
 );
 
@@ -54,6 +54,6 @@ export type MarqueeItemProps = HTMLAttributes<HTMLDivElement>;
 export const MarqueeItem = ({ className, ...props }: MarqueeItemProps) => (
   <div
     className={cn('mx-2 flex-shrink-0 object-contain', className)}
-    {...(props as any)}
+    {...props}
   />
 );

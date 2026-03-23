@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
+import { NextRequest } from "next/server"
 
 vi.mock("@/lib/auth", () => ({
   getSession: vi.fn(),
@@ -22,7 +23,7 @@ const mockSession = {
 }
 
 function makeRequest(body: Record<string, unknown>) {
-  return new Request("http://localhost/api/orders/order-1/status", {
+  return new NextRequest("http://localhost/api/orders/order-1/status", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
