@@ -15,13 +15,13 @@
     "db:generate": "prisma generate",
     "db:migrate": "dotenvx run -- prisma migrate dev",
     "db:push": "prisma db push",
-    "db:seed": "npx tsx prisma/seed.ts",
+    "db:seed": "npx tsx --env-file=.env prisma/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
   "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
+    "seed": "npx tsx --env-file=.env prisma/seed.ts"
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.57.1",
