@@ -26,7 +26,7 @@ export default async function SetupPage() {
         </p>
       </div>
 
-      <SetupForm userId={session.user.id} />
+      <SetupForm />
     </div>
   );
 }

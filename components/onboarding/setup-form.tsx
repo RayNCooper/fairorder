@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconLoader2 } from "@tabler/icons-react";
 
@@ -15,19 +15,13 @@ function slugify(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
-export function SetupForm({ userId }: { userId: string }) {
+export function SetupForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!slugEdited && name) {
-      setSlug(slugify(name));
-    }
-  }, [name, slugEdited]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,7 +64,10 @@ export function SetupForm({ userId }: { userId: string }) {
           id="name"
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+              setName(e.target.value);
+              if (!slugEdited) setSlug(slugify(e.target.value));
+            }}
           placeholder="z.B. Müllers Bäckerei"
           required
           autoFocus
