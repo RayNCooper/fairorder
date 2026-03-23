@@ -362,17 +362,68 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
 
   if (categories.length === 0) {
     return (
-      <EmptyState
-        illustration={
-          <IconToolsKitchen2 size={64} stroke={1.5} />
-        }
-        title="Noch keine Speisekarte"
-        description="Erstelle deine erste Kategorie, um Gerichte hinzuzufügen. Du kannst z.B. mit Vorspeisen, Hauptgerichte oder Getränke starten."
-        action={{
-          label: "Erste Kategorie erstellen",
-          onClick: openAddCategory,
-        }}
-      />
+      <>
+        <EmptyState
+          illustration={
+            <IconToolsKitchen2 size={64} stroke={1.5} />
+          }
+          title="Noch keine Speisekarte"
+          description="Erstelle deine erste Kategorie, um Gerichte hinzuzufügen. Du kannst z.B. mit Vorspeisen, Hauptgerichte oder Getränke starten."
+          action={{
+            label: "Erste Kategorie erstellen",
+            onClick: openAddCategory,
+          }}
+        />
+
+        {/* Category Dialog — must be in DOM for empty state button to work */}
+        <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+          <DialogContent className="rounded-none sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Neue Kategorie erstellen</DialogTitle>
+              <DialogDescription>
+                Gib deiner neuen Kategorie einen Namen, z.B. Vorspeisen, Hauptgerichte oder Getränke.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="category-name-empty">Name</Label>
+                <Input
+                  id="category-name-empty"
+                  className="rounded-none"
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  placeholder="z.B. Hauptgerichte"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveCategory();
+                  }}
+                  autoFocus
+                />
+              </div>
+              {error && (
+                <div className="border-l-3 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                className="rounded-none"
+                onClick={() => setCategoryDialogOpen(false)}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                className="rounded-none"
+                onClick={saveCategory}
+                disabled={categorySaving}
+              >
+                {categorySaving ? "Speichern..." : "Erstellen"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 

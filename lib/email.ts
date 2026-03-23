@@ -6,7 +6,7 @@
 
 import type { Transporter } from "nodemailer";
 
-const PLUNK_API_URL = "https://api.useplunk.com/v1/send";
+const PLUNK_BASE_URL = "https://next-api.useplunk.com";
 
 interface SendEmailOptions {
   to: string;
@@ -24,15 +24,20 @@ async function sendViaPlunk({ to, subject, body }: SendEmailOptions): Promise<bo
   }
 
   try {
-    const response = await fetch(PLUNK_API_URL, {
+    const res = await fetch(`${PLUNK_BASE_URL}/v1/send`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ to, subject, body }),
+      body: JSON.stringify({ to, subject, body, from: "noreply@fair-order.de" }),
     });
-    return response.ok;
+    if (!res.ok) {
+      const text = await res.text().catch(() => "unknown error");
+      console.error(`Failed to send email via Plunk (${res.status}): ${text}`);
+      return false;
+    }
+    return true;
   } catch (error) {
     console.error("Failed to send email via Plunk:", error);
     return false;
