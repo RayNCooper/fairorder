@@ -18,7 +18,7 @@ const mockSession = {
 }
 
 function makeFormDataRequest(
-  file?: { content: Buffer; type: string; name: string; size?: number }
+  file?: { content: Uint8Array; type: string; name: string; size?: number }
 ) {
   const formData = new FormData()
   if (file) {
@@ -58,7 +58,7 @@ describe("POST /api/menu-extraction/image", () => {
     vi.mocked(getSession).mockResolvedValue(mockSession as never)
     const res = await POST(
       makeFormDataRequest({
-        content: Buffer.from("not-an-image"),
+        content: new TextEncoder().encode("not-an-image"),
         type: "application/pdf",
         name: "menu.pdf",
       })
@@ -77,7 +77,7 @@ describe("POST /api/menu-extraction/image", () => {
 
     const res = await POST(
       makeFormDataRequest({
-        content: Buffer.from("fake-jpeg"),
+        content: new TextEncoder().encode("fake-jpeg"),
         type: "image/jpeg",
         name: "menu.jpg",
       })
@@ -96,7 +96,7 @@ describe("POST /api/menu-extraction/image", () => {
 
     const res = await POST(
       makeFormDataRequest({
-        content: Buffer.from("fake"),
+        content: new TextEncoder().encode("fake"),
         type: "image/png",
         name: "menu.png",
       })
