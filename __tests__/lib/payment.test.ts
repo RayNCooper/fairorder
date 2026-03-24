@@ -19,10 +19,10 @@ describe("payment — cash provider", () => {
     expect(result.clientSecret).toBeUndefined()
   })
 
-  it("verifyPayment always returns true for cash", async () => {
+  it("verifyPayment returns 'paid' for cash", async () => {
     const { verifyPayment } = await import("@/lib/payment")
     const result = await verifyPayment("cash_order-1")
-    expect(result).toBe(true)
+    expect(result).toBe("paid")
   })
 
   it("isStripeEnabled returns false for cash provider", async () => {
@@ -93,18 +93,39 @@ describe("payment — stripe provider", () => {
     expect(result.error).toBe("Card declined")
   })
 
-  it("verifyPayment checks payment intent status", async () => {
+  it("verifyPayment returns 'paid' for succeeded status", async () => {
     mockRetrieve.mockResolvedValue({ status: "succeeded" })
 
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("pi_123")).toBe(true)
+    expect(await verifyPayment("pi_123")).toBe("paid")
   })
 
-  it("verifyPayment returns false for non-succeeded status", async () => {
+  it("verifyPayment returns 'failed' for requires_payment_method", async () => {
     mockRetrieve.mockResolvedValue({ status: "requires_payment_method" })
 
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("pi_456")).toBe(false)
+    expect(await verifyPayment("pi_456")).toBe("failed")
+  })
+
+  it("verifyPayment returns 'failed' for canceled status", async () => {
+    mockRetrieve.mockResolvedValue({ status: "canceled" })
+
+    const { verifyPayment } = await import("@/lib/payment")
+    expect(await verifyPayment("pi_789")).toBe("failed")
+  })
+
+  it("verifyPayment returns 'pending' for processing status", async () => {
+    mockRetrieve.mockResolvedValue({ status: "processing" })
+
+    const { verifyPayment } = await import("@/lib/payment")
+    expect(await verifyPayment("pi_proc")).toBe("pending")
+  })
+
+  it("verifyPayment returns 'pending' for requires_action status", async () => {
+    mockRetrieve.mockResolvedValue({ status: "requires_action" })
+
+    const { verifyPayment } = await import("@/lib/payment")
+    expect(await verifyPayment("pi_action")).toBe("pending")
   })
 
   it("isStripeEnabled returns true when stripe provider + key set", async () => {
@@ -152,11 +173,11 @@ describe("payment — stripe provider edge cases", () => {
     expect(result.clientSecret).toBeUndefined()
   })
 
-  it("verifyPayment returns false on Stripe API error", async () => {
+  it("verifyPayment returns 'pending' on Stripe API error", async () => {
     mockRetrieve.mockRejectedValue(new Error("Network error"))
 
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("pi_broken")).toBe(false)
+    expect(await verifyPayment("pi_broken")).toBe("pending")
   })
 
   it("passes custom metadata through to Stripe", async () => {
@@ -227,9 +248,9 @@ describe("payment — verifyPayment unknown provider", () => {
     vi.stubEnv("PAYMENT_PROVIDER", "unknown-provider")
   })
 
-  it("returns false for unknown provider", async () => {
+  it("returns 'failed' for unknown provider", async () => {
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("txn_123")).toBe(false)
+    expect(await verifyPayment("txn_123")).toBe("failed")
   })
 })
 

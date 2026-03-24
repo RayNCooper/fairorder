@@ -20,6 +20,7 @@ function getStripe() {
 interface PaymentFormProps {
   clientSecret: string;
   amount: number; // cents
+  orderId: string;
   onSuccess: () => void;
   onError: (message: string) => void;
 }
@@ -27,12 +28,14 @@ interface PaymentFormProps {
 export function StripePaymentForm({
   clientSecret,
   amount,
+  orderId,
   onSuccess,
   onError,
 }: PaymentFormProps) {
   const [stripe, setStripe] = useState<import("@stripe/stripe-js").Stripe | null>(null);
   const [elements, setElements] = useState<import("@stripe/stripe-js").StripeElements | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -70,6 +73,37 @@ export function StripePaymentForm({
     return () => paymentElement.unmount();
   }, [elements]);
 
+  async function pollPaymentStatus() {
+    setConfirming(true);
+    for (let attempt = 0; attempt < 15; attempt++) {
+      try {
+        const res = await fetch("/api/payment/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === "paid") {
+            setConfirming(false);
+            onSuccess();
+            return;
+          }
+          if (data.status === "failed") {
+            setConfirming(false);
+            onError("Zahlung fehlgeschlagen.");
+            return;
+          }
+        }
+      } catch {
+        // Network error — retry
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    setConfirming(false);
+    onError("Zahlung konnte nicht bestätigt werden. Bitte prüfe deine Bestellung.");
+  }
+
   async function handleSubmit() {
     if (!stripe || !elements) return;
     setProcessing(true);
@@ -86,7 +120,8 @@ export function StripePaymentForm({
       onError(error.message ?? "Zahlung fehlgeschlagen.");
       setProcessing(false);
     } else {
-      onSuccess();
+      setProcessing(false);
+      pollPaymentStatus();
     }
   }
 
@@ -96,11 +131,15 @@ export function StripePaymentForm({
       {ready && (
         <button
           className="flex w-full items-center justify-between bg-green-600 px-4 py-3 text-white hover:bg-green-500 disabled:opacity-50"
-          disabled={processing || !stripe}
+          disabled={processing || confirming || !stripe}
           onClick={handleSubmit}
         >
           <span className="text-sm font-bold">
-            {processing ? "Wird verarbeitet..." : "Jetzt bezahlen"}
+            {confirming
+              ? "Zahlung wird bestätigt..."
+              : processing
+                ? "Wird verarbeitet..."
+                : "Jetzt bezahlen"}
           </span>
           <span className="font-mono text-sm font-bold tabular-nums">
             {(amount / 100).toFixed(2).replace(".", ",")}&nbsp;&euro;

@@ -27,8 +27,10 @@ function createCashIntent(options: CreatePaymentIntentOptions): PaymentResult {
   };
 }
 
-function verifyCashPayment(): boolean {
-  return true;
+export type PaymentVerifyStatus = "paid" | "pending" | "failed";
+
+function verifyCashPayment(): PaymentVerifyStatus {
+  return "paid";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,14 +86,25 @@ async function createStripeIntent(
 
 async function verifyStripePayment(
   transactionId: string
-): Promise<boolean> {
+): Promise<PaymentVerifyStatus> {
   try {
     const stripe = await getStripeClient();
     const paymentIntent = await stripe.paymentIntents.retrieve(transactionId);
-    return paymentIntent.status === "succeeded";
+
+    switch (paymentIntent.status) {
+      case "succeeded":
+        return "paid";
+      case "canceled":
+      case "requires_payment_method":
+        return "failed";
+      default:
+        // processing, requires_action, requires_confirmation, etc.
+        return "pending";
+    }
   } catch (error) {
     console.error("Failed to verify Stripe payment:", error);
-    return false;
+    // API call failed — we don't know if the payment failed, so return pending
+    return "pending";
   }
 }
 
@@ -120,7 +133,7 @@ export async function createPaymentIntent(
 
 export async function verifyPayment(
   transactionId: string
-): Promise<boolean> {
+): Promise<PaymentVerifyStatus> {
   const provider = getProvider();
 
   switch (provider) {
@@ -129,7 +142,7 @@ export async function verifyPayment(
     case "cash":
       return verifyCashPayment();
     default:
-      return false;
+      return "failed";
   }
 }
 
