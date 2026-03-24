@@ -22,7 +22,7 @@ function makeFormDataRequest(
 ) {
   const formData = new FormData()
   if (file) {
-    const blob = new Blob([file.content], { type: file.type })
+    const blob = new Blob([file.content as BlobPart], { type: file.type })
     // Override size if specified
     const f = new File([blob], file.name, { type: file.type })
     formData.append("file", f)
