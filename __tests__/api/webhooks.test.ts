@@ -42,10 +42,10 @@ describe("POST /api/webhooks/stripe", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_xxx")
   })
 
-  it("returns 500 if STRIPE_WEBHOOK_SECRET not set", async () => {
+  it("returns 503 if STRIPE_WEBHOOK_SECRET not set", async () => {
     delete process.env.STRIPE_WEBHOOK_SECRET
     const res = await POST(makeRequest("{}", "sig_123"))
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(503)
   })
 
   it("returns 400 if signature header missing", async () => {
