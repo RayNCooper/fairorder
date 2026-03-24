@@ -10,3 +10,4 @@
 - [ ] **Payment refund API** — Programmatic refunds via Stripe API (currently manual via Stripe dashboard)
 - [ ] **Menu item nutritional AI analysis** — Use Gemini to estimate calories/macros from item names/descriptions
 - [ ] **Automated menu scraping on schedule** — Cron-based re-crawl of online menus to keep items up to date (currently one-shot import only)
+- [ ] **Baseline existing databases for Prisma migrations** — Databases created before the migration system (via `db push`) need `prisma migrate resolve --applied 0_init` before they can run new migrations. Add a setup script or document the upgrade path for existing installations.

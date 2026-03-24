@@ -46,7 +46,6 @@ pnpm dev:local              # Starts without dotenvx
 | `pnpm lint` | Run ESLint |
 | `pnpm db:generate` | Regenerate Prisma client |
 | `pnpm db:migrate` | Run migrations (applies schema changes safely) |
-| `pnpm db:migrate` | Run migrations (production-safe) |
 | `pnpm db:seed` | Seed demo data (idempotent) |
 
 ## Code Style

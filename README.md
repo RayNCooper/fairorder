@@ -178,7 +178,7 @@ Configure via `PAYMENT_PROVIDER` environment variable:
 | Provider | Use case | Required env vars |
 |----------|----------|-------------------|
 | `cash` | Default — pay at the till | None |
-| `stripe` | Online prepayment | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` |
+| `stripe` | Online prepayment | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
 
 ## Menu Extraction Providers
 

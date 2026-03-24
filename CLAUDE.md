@@ -57,8 +57,8 @@ app/
   api/categories/ # Category CRUD
   api/menu-items/ # Menu item CRUD + bulk import
   api/orders/     # Order status updates
-  api/payment/    # Payment intent creation
-  api/webhooks/   # Stripe webhooks
+  api/payment/    # Payment intent creation + status verification (polling)
+  api/cron/       # Background jobs (payment sweep)
   api/menu-extraction/ # AI menu extraction (image + URL)
   api/health/     # Health check endpoint
 components/
