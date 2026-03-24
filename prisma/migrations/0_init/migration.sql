@@ -31,6 +31,8 @@ CREATE TABLE "public"."Location" (
     "isPublic" BOOLEAN NOT NULL DEFAULT true,
     "orderingEnabled" BOOLEAN NOT NULL DEFAULT false,
     "userId" TEXT,
+    "paymentEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "acceptedPayments" TEXT[] DEFAULT ARRAY['cash']::TEXT[],
 
     CONSTRAINT "Location_pkey" PRIMARY KEY ("id")
 );
@@ -88,6 +90,10 @@ CREATE TABLE "public"."Order" (
     "requestedPickupTime" TIMESTAMP(3) NOT NULL,
     "estimatedReadyTime" TIMESTAMP(3),
     "status" "public"."OrderStatus" NOT NULL DEFAULT 'PENDING',
+    "paymentMethod" TEXT NOT NULL DEFAULT 'cash',
+    "paymentStatus" TEXT NOT NULL DEFAULT 'pending',
+    "paymentIntentId" TEXT,
+    "paidAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "prepStartedAt" TIMESTAMP(3),
@@ -160,10 +166,10 @@ CREATE INDEX "NewsletterSignup_email_idx" ON "public"."NewsletterSignup"("email"
 CREATE UNIQUE INDEX "NewsletterSignup_email_key" ON "public"."NewsletterSignup"("email" ASC);
 
 -- CreateIndex
-CREATE INDEX "Order_locationId_createdAt_idx" ON "public"."Order"("locationId" ASC, "createdAt" ASC);
+CREATE UNIQUE INDEX "Order_locationId_orderNumber_key" ON "public"."Order"("locationId" ASC, "orderNumber" ASC);
 
 -- CreateIndex
-CREATE INDEX "Order_locationId_orderNumber_idx" ON "public"."Order"("locationId" ASC, "orderNumber" ASC);
+CREATE INDEX "Order_locationId_createdAt_idx" ON "public"."Order"("locationId" ASC, "createdAt" ASC);
 
 -- CreateIndex
 CREATE INDEX "Order_locationId_status_idx" ON "public"."Order"("locationId" ASC, "status" ASC);
@@ -206,4 +212,3 @@ ALTER TABLE "public"."OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "public"."Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
