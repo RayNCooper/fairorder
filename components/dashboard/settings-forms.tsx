@@ -16,6 +16,8 @@ interface LocationData {
   operatingHours: string | null;
   orderingEnabled: boolean;
   maxActiveOrders: number;
+  paymentEnabled: boolean;
+  acceptedPayments: string[];
 }
 
 interface UserData {
@@ -350,6 +352,130 @@ export function OrderSettingsForm({ location }: { location: LocationData }) {
             Begrenzt gleichzeitig offene Bestellungen. Standard: 50.
           </p>
         </div>
+
+        {message && (
+          <div
+            className={cn(
+              "border-l-[3px] px-3 py-2 text-sm",
+              message.type === "success"
+                ? "border-green-600 bg-green-50 text-green-800"
+                : "border-red-600 bg-red-50 text-red-800"
+            )}
+          >
+            {message.text}
+          </div>
+        )}
+
+        <Button
+          className="rounded-none"
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving && <IconLoader2 className="size-4 animate-spin" />}
+          Speichern
+        </Button>
+      </div>
+    </SectionCard>
+  );
+}
+
+export function PaymentSettingsForm({ location }: { location: LocationData }) {
+  const router = useRouter();
+  const [paymentEnabled, setPaymentEnabled] = useState(location.paymentEnabled);
+  const [acceptCash, setAcceptCash] = useState(
+    location.acceptedPayments.includes("cash")
+  );
+  const [acceptStripe, setAcceptStripe] = useState(
+    location.acceptedPayments.includes("stripe")
+  );
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [, startTransition] = useTransition();
+
+  async function handleSave() {
+    const acceptedPayments: string[] = [];
+    if (acceptCash) acceptedPayments.push("cash");
+    if (acceptStripe) acceptedPayments.push("stripe");
+
+    if (paymentEnabled && acceptedPayments.length === 0) {
+      setMessage({ type: "error", text: "Mindestens eine Zahlungsart muss aktiviert sein." });
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/locations/${location.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentEnabled, acceptedPayments }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setMessage({ type: "error", text: data.error || "Fehler beim Speichern." });
+        return;
+      }
+
+      setMessage({ type: "success", text: "Gespeichert." });
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <SectionCard
+      title="Zahlung"
+      description="Konfiguriere die Zahlungsoptionen für Vorbestellungen."
+    >
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="payment-enabled">Online-Zahlung aktivieren</Label>
+            <p className="text-xs text-muted-foreground">
+              Kunden können bei der Bestellung direkt bezahlen.
+            </p>
+          </div>
+          <Switch
+            id="payment-enabled"
+            checked={paymentEnabled}
+            onCheckedChange={setPaymentEnabled}
+          />
+        </div>
+
+        {paymentEnabled && (
+          <div className="space-y-3 border-l-[3px] border-amber-500 bg-amber-50 px-3 py-2">
+            <p className="text-xs font-medium text-amber-800">Akzeptierte Zahlungsarten</p>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="accept-cash" className="text-sm">Barzahlung</Label>
+                <p className="text-xs text-muted-foreground">Zahlung an der Kasse</p>
+              </div>
+              <Switch
+                id="accept-cash"
+                checked={acceptCash}
+                onCheckedChange={setAcceptCash}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="accept-stripe" className="text-sm">Kartenzahlung (Stripe)</Label>
+                <p className="text-xs text-muted-foreground">Kreditkarte, Apple Pay, Google Pay</p>
+              </div>
+              <Switch
+                id="accept-stripe"
+                checked={acceptStripe}
+                onCheckedChange={setAcceptStripe}
+              />
+            </div>
+          </div>
+        )}
 
         {message && (
           <div
