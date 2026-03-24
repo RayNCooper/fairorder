@@ -30,6 +30,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Filter out items with blank names
+    const validItems = items.filter(
+      (i: { name?: string }) => i.name && i.name.trim().length > 0
+    );
+    if (validItems.length === 0) {
+      return NextResponse.json(
+        { error: "Keine gültigen Gerichte (alle Namen leer)." },
+        { status: 400 }
+      );
+    }
+
     // Get the current max sort order
     const lastItem = await db.menuItem.findFirst({
       where: { locationId: location.id },
@@ -41,7 +52,7 @@ export async function POST(request: NextRequest) {
     // Resolve category names to IDs if provided
     const categoryNames = [
       ...new Set(
-        items
+        validItems
           .map((i: { category?: string }) => i.category?.trim())
           .filter(Boolean) as string[]
       ),
@@ -79,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     const created = await db.$transaction(
-      items.map(
+      validItems.map(
         (item: {
           name: string;
           price: string | number;

@@ -58,8 +58,9 @@ async function extractWithGemini(
     );
   }
 
-  const { google } = await import("@ai-sdk/google");
+  const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
   const { generateObject } = await import("ai");
+  const google = createGoogleGenerativeAI({ apiKey });
 
   const { object, usage } = await generateObject({
     model: google("gemini-2.5-flash"),
@@ -104,8 +105,9 @@ async function extractTextWithGemini(
     );
   }
 
-  const { google } = await import("@ai-sdk/google");
+  const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
   const { generateObject } = await import("ai");
+  const google = createGoogleGenerativeAI({ apiKey });
 
   const { object, usage } = await generateObject({
     model: google("gemini-2.5-flash"),

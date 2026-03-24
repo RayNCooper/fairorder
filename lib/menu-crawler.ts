@@ -52,14 +52,40 @@ export async function crawlMenuFromUrl(
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
-    const res = await fetch(url.toString(), {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "text/html",
-      },
-      redirect: "follow",
-    });
+    // Manual redirect handling to validate each redirect target against SSRF blocklist
+    let currentUrl = url.toString();
+    let res: Response;
+    let redirectCount = 0;
+    const MAX_REDIRECTS = 5;
+
+    while (true) {
+      res = await fetch(currentUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "text/html",
+        },
+        redirect: "manual",
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
+        if (!location || ++redirectCount > MAX_REDIRECTS) {
+          throw new Error("Zu viele Weiterleitungen.");
+        }
+        // Resolve relative redirects against the current URL
+        const redirectUrl = new URL(location, currentUrl);
+        if (isBlockedHost(redirectUrl.hostname)) {
+          throw new Error("Diese URL ist nicht erlaubt.");
+        }
+        if (redirectUrl.protocol !== "https:" && redirectUrl.protocol !== "http:") {
+          throw new Error("Nur HTTP(S)-URLs werden unterstützt.");
+        }
+        currentUrl = redirectUrl.toString();
+        continue;
+      }
+      break;
+    }
 
     if (!res.ok) {
       throw new Error(`Website hat mit Status ${res.status} geantwortet.`);
