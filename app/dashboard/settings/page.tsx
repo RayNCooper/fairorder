@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   LocationSettingsForm,
   OrderSettingsForm,
+  PaymentSettingsForm,
   AccountSection,
 } from "@/components/dashboard/settings-forms";
 
@@ -34,6 +35,8 @@ export default async function SettingsPage() {
       : null,
     orderingEnabled: location.orderingEnabled,
     maxActiveOrders: location.maxActiveOrders,
+    paymentEnabled: location.paymentEnabled,
+    acceptedPayments: location.acceptedPayments,
   };
 
   const userData = {
@@ -47,6 +50,7 @@ export default async function SettingsPage() {
       <div className="space-y-4">
         <LocationSettingsForm location={locationData} />
         <OrderSettingsForm location={locationData} />
+        <PaymentSettingsForm location={locationData} />
         <AccountSection user={userData} />
       </div>
     </div>

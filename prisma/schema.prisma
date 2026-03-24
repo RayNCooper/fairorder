@@ -58,6 +58,10 @@ model Location {
   orderingEnabled Boolean  @default(false)
   isPublic        Boolean  @default(true)
 
+  // Payment
+  paymentEnabled    Boolean  @default(false)
+  acceptedPayments  String[] @default(["cash"])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -134,6 +138,11 @@ model Order {
   estimatedReadyTime  DateTime?
 
   status OrderStatus @default(PENDING)
+
+  paymentMethod   String    @default("cash")
+  paymentStatus   String    @default("pending")
+  paymentIntentId String?
+  paidAt          DateTime?
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

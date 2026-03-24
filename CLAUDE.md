@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Open-source canteen ordering system, built in the open on GitHub. Operators sign up, import menus via OCR, and get a live QR-scannable menu page. Guests scan, browse, and order — no app needed. Built as a standalone app sharing the same PostgreSQL database with the private marketing site.
+Open-source canteen ordering system, built in the open on GitHub. Operators sign up, import menus via AI extraction, and get a live QR-scannable menu page. Guests scan, browse, and order — no app needed. Built as a standalone app sharing the same PostgreSQL database with the private marketing site.
 
 ## Built in the Open
 
@@ -27,7 +27,6 @@ pnpm lint         # Run ESLint
 pnpm test         # Run Vitest test suite
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:migrate   # Run migrations (dev)
-pnpm db:push      # Push schema to DB without migration
 pnpm db:seed      # Seed demo data (idempotent)
 ```
 
@@ -38,8 +37,9 @@ pnpm db:seed      # Seed demo data (idempotent)
 - **UI:** Tailwind CSS v4, Radix UI, shadcn/ui, 0px border-radius
 - **Auth:** Hand-rolled magic link auth with httpOnly session cookies
 - **Email:** Pluggable via `EMAIL_PROVIDER` env var — plunk (ESP), smtp (nodemailer), console (dev)
+- **Payment:** Pluggable via `PAYMENT_PROVIDER` env var — stripe (Stripe), cash (default)
+- **Menu Extraction:** Pluggable via `MENU_EXTRACTION_PROVIDER` env var — gemini (Vercel AI SDK + @ai-sdk/google, structured output via generateObject), console (dev)
 - **Env:** dotenvx for maintainers; plain `.env` via `:local` scripts for contributors. See `.env.example`
-- **OCR:** Tesseract.js (client-side, German language pack) — NOT OpenAI Vision
 - **Fonts:** Plus Jakarta Sans (headings/body), JetBrains Mono (numbers/metadata)
 - **Package Manager:** pnpm
 
@@ -57,17 +57,25 @@ app/
   api/categories/ # Category CRUD
   api/menu-items/ # Menu item CRUD + bulk import
   api/orders/     # Order status updates
+  api/payment/    # Payment intent creation + status verification (polling)
+  api/cron/       # Background jobs (payment sweep)
+  api/menu-extraction/ # AI menu extraction (image + URL)
   api/health/     # Health check endpoint
 components/
   auth/           # Magic link form, auth feedback
-  dashboard/      # Nav, menu manager, order list, settings, analytics
+  dashboard/      # Nav, menu manager, order list, settings, menu import
   display/        # Kitchen display (real-time order board)
-  onboarding/     # Setup form, OCR menu import, QR complete
+  onboarding/     # Setup form, AI menu import, QR complete
+  public/         # Public menu page, payment form
   ui/             # shadcn/ui components
 lib/
   auth.ts         # Session management (create, get, delete, cookies)
   db.ts           # Prisma client singleton
   email.ts        # Email sending (pluggable: plunk/smtp/console)
+  payment.ts      # Payment processing (pluggable: stripe/cash)
+  menu-extraction.ts # AI menu extraction (pluggable: gemini/console)
+  menu-crawler.ts # URL crawler for menu extraction
+  storage.ts      # Image upload (local filesystem)
   magic-link.ts   # Magic link token creation and verification
   utils.ts        # cn() helper
 prisma/

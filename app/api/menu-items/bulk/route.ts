@@ -30,6 +30,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Filter out items with blank names
+    const validItems = items.filter(
+      (i: { name?: string }) => i.name && i.name.trim().length > 0
+    );
+    if (validItems.length === 0) {
+      return NextResponse.json(
+        { error: "Keine gültigen Gerichte (alle Namen leer)." },
+        { status: 400 }
+      );
+    }
+
     // Get the current max sort order
     const lastItem = await db.menuItem.findFirst({
       where: { locationId: location.id },
@@ -38,21 +49,84 @@ export async function POST(request: NextRequest) {
 
     let sortOrder = (lastItem?.sortOrder ?? -1) + 1;
 
+    // Resolve category names to IDs if provided
+    const categoryNames = [
+      ...new Set(
+        validItems
+          .map((i: { category?: string }) => i.category?.trim())
+          .filter(Boolean) as string[]
+      ),
+    ];
+
+    const categoryMap = new Map<string, string>();
+    if (categoryNames.length > 0) {
+      // Find existing categories
+      const existing = await db.category.findMany({
+        where: { locationId: location.id, name: { in: categoryNames } },
+      });
+      for (const cat of existing) {
+        categoryMap.set(cat.name.toLowerCase(), cat.id);
+      }
+
+      // Create missing categories
+      const lastCat = await db.category.findFirst({
+        where: { locationId: location.id },
+        orderBy: { sortOrder: "desc" },
+      });
+      let catSortOrder = (lastCat?.sortOrder ?? -1) + 1;
+
+      for (const name of categoryNames) {
+        if (!categoryMap.has(name.toLowerCase())) {
+          const created = await db.category.create({
+            data: {
+              name,
+              locationId: location.id,
+              sortOrder: catSortOrder++,
+            },
+          });
+          categoryMap.set(name.toLowerCase(), created.id);
+        }
+      }
+    }
+
     const created = await db.$transaction(
-      items.map((item: { name: string; price: string }) => {
-        const priceNum = parseFloat(
-          (item.price ?? "0").replace(",", ".")
-        );
-        return db.menuItem.create({
-          data: {
-            name: item.name.trim(),
-            price: isNaN(priceNum) || priceNum < 0 ? 0 : priceNum,
-            locationId: location.id,
-            isAvailable: true,
-            sortOrder: sortOrder++,
-          },
-        });
-      })
+      validItems.map(
+        (item: {
+          name: string;
+          price: string | number;
+          description?: string;
+          category?: string;
+          categoryId?: string;
+          allergens?: string[];
+          dietaryTags?: string[];
+        }) => {
+          const priceNum =
+            typeof item.price === "number"
+              ? item.price
+              : parseFloat((item.price ?? "0").replace(",", "."));
+
+          const categoryId =
+            item.categoryId ??
+            (item.category
+              ? categoryMap.get(item.category.trim().toLowerCase())
+              : undefined) ??
+            null;
+
+          return db.menuItem.create({
+            data: {
+              name: item.name.trim(),
+              description: item.description?.trim() || null,
+              price: isNaN(priceNum) || priceNum < 0 ? 0 : priceNum,
+              locationId: location.id,
+              categoryId,
+              isAvailable: true,
+              sortOrder: sortOrder++,
+              allergens: item.allergens ?? [],
+              dietaryTags: item.dietaryTags ?? [],
+            },
+          });
+        }
+      )
     );
 
     return NextResponse.json(

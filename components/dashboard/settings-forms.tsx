@@ -16,6 +16,8 @@ interface LocationData {
   operatingHours: string | null;
   orderingEnabled: boolean;
   maxActiveOrders: number;
+  paymentEnabled: boolean;
+  acceptedPayments: string[];
 }
 
 interface UserData {
@@ -38,6 +40,119 @@ function SectionCard({
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       )}
       <div className="mt-4">{children}</div>
+    </div>
+  );
+}
+
+const WEEKDAYS = [
+  { key: "monday", label: "Montag" },
+  { key: "tuesday", label: "Dienstag" },
+  { key: "wednesday", label: "Mittwoch" },
+  { key: "thursday", label: "Donnerstag" },
+  { key: "friday", label: "Freitag" },
+  { key: "saturday", label: "Samstag" },
+  { key: "sunday", label: "Sonntag" },
+] as const;
+
+interface HoursSlot {
+  open: string;
+  close: string;
+}
+
+type HoursData = Record<string, HoursSlot[] | null>;
+
+function parseHours(raw: string): HoursData {
+  if (!raw.trim()) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "object" && parsed !== null) return parsed;
+  } catch {
+    // Not JSON — return empty
+  }
+  return {};
+}
+
+function serializeHours(data: HoursData): string {
+  const cleaned: HoursData = {};
+  for (const day of WEEKDAYS) {
+    const slots = data[day.key];
+    if (slots && slots.length > 0 && slots[0].open && slots[0].close) {
+      cleaned[day.key] = slots;
+    } else {
+      cleaned[day.key] = null;
+    }
+  }
+  return JSON.stringify(cleaned, null, 2);
+}
+
+function OperatingHoursEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const data = parseHours(value);
+
+  function updateDay(dayKey: string, open: string, close: string) {
+    const next = { ...data };
+    if (open || close) {
+      next[dayKey] = [{ open, close }];
+    } else {
+      next[dayKey] = null;
+    }
+    onChange(serializeHours(next));
+  }
+
+  function toggleDay(dayKey: string, enabled: boolean) {
+    const next = { ...data };
+    if (enabled) {
+      next[dayKey] = [{ open: "07:30", close: "15:00" }];
+    } else {
+      next[dayKey] = null;
+    }
+    onChange(serializeHours(next));
+  }
+
+  return (
+    <div className="space-y-2">
+      {WEEKDAYS.map((day) => {
+        const slots = data[day.key];
+        const isActive = slots && slots.length > 0 && (slots[0].open || slots[0].close);
+        const open = slots?.[0]?.open ?? "";
+        const close = slots?.[0]?.close ?? "";
+
+        return (
+          <div key={day.key} className="flex items-center gap-3">
+            <div className="flex w-24 items-center gap-2">
+              <Switch
+                checked={!!isActive}
+                onCheckedChange={(checked) => toggleDay(day.key, checked)}
+              />
+              <span className="text-xs font-medium">{day.label}</span>
+            </div>
+            {isActive ? (
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="time"
+                  value={open}
+                  onChange={(e) => updateDay(day.key, e.target.value, close)}
+                  className="w-28 rounded-none font-mono text-xs"
+                />
+                <span className="text-xs text-muted-foreground">–</span>
+                <Input
+                  type="time"
+                  value={close}
+                  onChange={(e) => updateDay(day.key, open, e.target.value)}
+                  className="w-28 rounded-none font-mono text-xs"
+                />
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">Geschlossen</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -123,16 +238,13 @@ export function LocationSettingsForm({ location }: { location: LocationData }) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="operating-hours">Öffnungszeiten</Label>
-          <Input
-            id="operating-hours"
+          <Label>Öffnungszeiten</Label>
+          <OperatingHoursEditor
             value={operatingHours}
-            onChange={(e) => setOperatingHours(e.target.value)}
-            placeholder='z.B. Mo-Fr 8:00-16:00'
-            className="rounded-none"
+            onChange={setOperatingHours}
           />
           <p className="text-xs text-muted-foreground">
-            Freitext oder JSON-Format.
+            Lege die Öffnungszeiten für jeden Wochentag fest.
           </p>
         </div>
 
@@ -240,6 +352,130 @@ export function OrderSettingsForm({ location }: { location: LocationData }) {
             Begrenzt gleichzeitig offene Bestellungen. Standard: 50.
           </p>
         </div>
+
+        {message && (
+          <div
+            className={cn(
+              "border-l-[3px] px-3 py-2 text-sm",
+              message.type === "success"
+                ? "border-green-600 bg-green-50 text-green-800"
+                : "border-red-600 bg-red-50 text-red-800"
+            )}
+          >
+            {message.text}
+          </div>
+        )}
+
+        <Button
+          className="rounded-none"
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving && <IconLoader2 className="size-4 animate-spin" />}
+          Speichern
+        </Button>
+      </div>
+    </SectionCard>
+  );
+}
+
+export function PaymentSettingsForm({ location }: { location: LocationData }) {
+  const router = useRouter();
+  const [paymentEnabled, setPaymentEnabled] = useState(location.paymentEnabled);
+  const [acceptCash, setAcceptCash] = useState(
+    location.acceptedPayments.includes("cash")
+  );
+  const [acceptStripe, setAcceptStripe] = useState(
+    location.acceptedPayments.includes("stripe")
+  );
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [, startTransition] = useTransition();
+
+  async function handleSave() {
+    const acceptedPayments: string[] = [];
+    if (acceptCash) acceptedPayments.push("cash");
+    if (acceptStripe) acceptedPayments.push("stripe");
+
+    if (paymentEnabled && acceptedPayments.length === 0) {
+      setMessage({ type: "error", text: "Mindestens eine Zahlungsart muss aktiviert sein." });
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/locations/${location.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentEnabled, acceptedPayments }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setMessage({ type: "error", text: data.error || "Fehler beim Speichern." });
+        return;
+      }
+
+      setMessage({ type: "success", text: "Gespeichert." });
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <SectionCard
+      title="Zahlung"
+      description="Konfiguriere die Zahlungsoptionen für Vorbestellungen."
+    >
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="payment-enabled">Online-Zahlung aktivieren</Label>
+            <p className="text-xs text-muted-foreground">
+              Kunden können bei der Bestellung direkt bezahlen.
+            </p>
+          </div>
+          <Switch
+            id="payment-enabled"
+            checked={paymentEnabled}
+            onCheckedChange={setPaymentEnabled}
+          />
+        </div>
+
+        {paymentEnabled && (
+          <div className="space-y-3 border-l-[3px] border-amber-500 bg-amber-50 px-3 py-2">
+            <p className="text-xs font-medium text-amber-800">Akzeptierte Zahlungsarten</p>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="accept-cash" className="text-sm">Barzahlung</Label>
+                <p className="text-xs text-muted-foreground">Zahlung an der Kasse</p>
+              </div>
+              <Switch
+                id="accept-cash"
+                checked={acceptCash}
+                onCheckedChange={setAcceptCash}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="accept-stripe" className="text-sm">Kartenzahlung (Stripe)</Label>
+                <p className="text-xs text-muted-foreground">Kreditkarte, Apple Pay, Google Pay</p>
+              </div>
+              <Switch
+                id="accept-stripe"
+                checked={acceptStripe}
+                onCheckedChange={setAcceptStripe}
+              />
+            </div>
+          </div>
+        )}
 
         {message && (
           <div

@@ -74,6 +74,31 @@ export async function PUT(
       updateData.maxActiveOrders = max;
     }
 
+    if (body.paymentEnabled !== undefined) {
+      if (typeof body.paymentEnabled !== "boolean") {
+        return NextResponse.json(
+          { error: "paymentEnabled muss ein Boolean sein." },
+          { status: 400 }
+        );
+      }
+      updateData.paymentEnabled = body.paymentEnabled;
+    }
+
+    if (body.acceptedPayments !== undefined) {
+      if (
+        !Array.isArray(body.acceptedPayments) ||
+        !body.acceptedPayments.every(
+          (p: unknown) => typeof p === "string" && ["cash", "stripe"].includes(p as string)
+        )
+      ) {
+        return NextResponse.json(
+          { error: "acceptedPayments muss ein Array aus 'cash' und/oder 'stripe' sein." },
+          { status: 400 }
+        );
+      }
+      updateData.acceptedPayments = body.acceptedPayments;
+    }
+
     const updated = await db.location.update({
       where: { id },
       data: updateData,

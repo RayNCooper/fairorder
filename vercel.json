@@ -1,3 +1,9 @@
 {
-  "buildCommand": "pnpm build:local"
+  "buildCommand": "pnpm build:local",
+  "crons": [
+    {
+      "path": "/api/cron/verify-payments",
+      "schedule": "*/2 * * * *"
+    }
+  ]
 }

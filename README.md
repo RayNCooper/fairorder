@@ -2,7 +2,7 @@
   <img src="public/images/logo.png" alt="FairOrder" width="200" />
 </p>
 
-**Open-source canteen ordering system — operators sign up, import menus via OCR, and get a live QR-scannable menu page.**
+**Open-source canteen ordering system — operators sign up, import menus via AI extraction, and get a live QR-scannable menu page.**
 
 Guests scan, order, kitchen prepares. Self-host in one command with Docker Compose.
 
@@ -12,7 +12,8 @@ Guests scan, order, kitchen prepares. Self-host in one command with Docker Compo
 
 ### For Operators
 - **Magic Link Auth** — Passwordless login via email, no passwords to manage
-- **OCR Menu Import** — Upload a photo of your menu, get structured data (Tesseract.js, 100% client-side)
+- **AI Menu Import** — Upload a photo or paste a URL, AI extracts structured menu data (Google Gemini via Vercel AI SDK)
+- **Optional Prepayment** — Stripe integration for pay-before-pickup, or cash at the till
 - **3-Step Onboarding** — Location setup, menu import, QR code — live in minutes
 - **Multi-Location** — One account, many locations
 
@@ -45,8 +46,9 @@ Guests scan, order, kitchen prepares. Self-host in one command with Docker Compo
 | **Database** | PostgreSQL + Prisma v7 |
 | **Styling** | Tailwind CSS v4, Radix UI, shadcn/ui |
 | **Auth** | Magic link (passwordless, httpOnly cookies) |
-| **OCR** | Tesseract.js (client-side WASM, German) |
+| **AI** | Vercel AI SDK + Google Gemini (structured output) |
 | **Email** | Pluggable: Plunk, SMTP, or Console |
+| **Payment** | Pluggable: Stripe (prepayment) or Cash (default) |
 | **Testing** | Vitest |
 
 ---
@@ -71,7 +73,7 @@ cd fairorder
 pnpm install
 cp .env.example .env    # Edit DATABASE_URL
 pnpm db:generate
-pnpm db:push
+pnpm db:migrate
 pnpm db:seed
 pnpm dev:local
 ```
@@ -103,13 +105,18 @@ fairorder/
 ├── components/
 │   ├── ui/               # shadcn/ui design system (0px radius)
 │   ├── auth/             # Magic link forms
-│   ├── dashboard/        # Nav, menu manager, order list
+│   ├── dashboard/        # Nav, menu manager, order list, import
 │   ├── display/          # Kitchen display components
-│   └── onboarding/       # Setup form, OCR import, QR display
+│   ├── onboarding/       # Setup form, AI menu import, QR display
+│   └── public/           # Public menu page, payment form
 ├── lib/
 │   ├── auth.ts           # Session management
 │   ├── db.ts             # Prisma client
 │   ├── email.ts          # Email provider (plunk/smtp/console)
+│   ├── payment.ts        # Payment provider (stripe/cash)
+│   ├── menu-extraction.ts # AI menu extraction (gemini/console)
+│   ├── menu-crawler.ts   # URL crawler for menu import
+│   ├── storage.ts        # Image upload
 │   ├── magic-link.ts     # Token creation & verification
 │   └── utils.ts          # cn() helper
 ├── prisma/
@@ -132,8 +139,8 @@ fairorder/
 └──────────────┘       │ timezone     │       │ isActive     │
        │               │ adminToken   │       └──────────────┘
        │               │ displayToken │              │
-┌──────────────┐       └──────────────┘       ┌──────────────┐
-│   Session    │              │               │   MenuItem   │
+┌──────────────┐       │ paymentOn    │       ┌──────────────┐
+│   Session    │       └──────────────┘       │   MenuItem   │
 ├──────────────┤              │               ├──────────────┤
 │ id           │              │               │ id           │
 │ token        │              │               │ name         │
@@ -147,7 +154,9 @@ fairorder/
                        │ customerName │       │ quantity     │
                        │ status       │       │ unitPrice    │
                        │ pickupTime   │       │ notes        │
-                       └──────────────┘       └──────────────┘
+                       │ paymentMethod│       └──────────────┘
+                       │ paymentStatus│
+                       └──────────────┘
 ```
 
 ---
@@ -161,6 +170,24 @@ Configure via `EMAIL_PROVIDER` environment variable:
 | `console` | Development (default) | None |
 | `smtp` | Self-hosting | `SMTP_HOST`, `SMTP_FROM` |
 | `plunk` | Hosted version | `PLUNK_API_KEY` |
+
+## Payment Providers
+
+Configure via `PAYMENT_PROVIDER` environment variable:
+
+| Provider | Use case | Required env vars |
+|----------|----------|-------------------|
+| `cash` | Default — pay at the till | None |
+| `stripe` | Online prepayment | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
+
+## Menu Extraction Providers
+
+Configure via `MENU_EXTRACTION_PROVIDER` environment variable:
+
+| Provider | Use case | Required env vars |
+|----------|----------|-------------------|
+| `console` | Development (default) | None |
+| `gemini` | Production — AI extracts menus from images and URLs | `GEMINI_API_KEY` |
 
 ---
 

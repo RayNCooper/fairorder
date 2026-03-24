@@ -7,6 +7,7 @@ import {
   IconLayoutDashboard,
   IconShoppingCart,
   IconToolsKitchen2,
+  IconFileImport,
   IconSettings,
   IconDeviceDesktop,
   IconLogout,
@@ -18,6 +19,7 @@ const navItems = [
   { href: "/dashboard", label: "Übersicht", icon: IconLayoutDashboard },
   { href: "/dashboard/orders", label: "Bestellungen", icon: IconShoppingCart },
   { href: "/dashboard/menu", label: "Speisekarte", icon: IconToolsKitchen2 },
+  { href: "/dashboard/import", label: "Import", icon: IconFileImport },
   { href: "/dashboard/settings", label: "Einstellungen", icon: IconSettings },
   { href: "/dashboard/analytics", label: "Anzeige", icon: IconDeviceDesktop },
 ];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +40,6 @@ import {
   IconPencil,
   IconTrash,
   IconToolsKitchen2,
-  IconCategory,
   IconGripVertical,
   IconUpload,
   IconX,
@@ -562,9 +562,11 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
                   >
                     <div className="flex items-start justify-between gap-2">
                       {item.imageUrl && (
-                        <img
+                        <Image
                           src={item.imageUrl}
                           alt={item.name}
+                          width={48}
+                          height={48}
                           className="h-12 w-12 shrink-0 object-cover border border-stone-200"
                         />
                       )}
