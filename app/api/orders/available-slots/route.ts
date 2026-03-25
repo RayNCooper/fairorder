@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-const SLOT_INTERVAL_MINUTES = 15;
-const MAX_SLOTS = 32; // ~8 hours of 15-min slots
+const DEFAULT_SLOT_INTERVAL = 15;
 
 interface OperatingHoursDay {
   open: string;
@@ -44,6 +43,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ slots: [] });
   }
 
+  const slotInterval = location.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+  const maxSlots = Math.ceil(480 / slotInterval); // ~8 hours worth of slots
   const timezone = location.timezone ?? "Europe/Berlin";
   const operatingHours = location.operatingHours as Record<
     string,
@@ -103,12 +104,12 @@ export async function GET(request: NextRequest) {
     // Round up to next slot interval
     const rawStart = Math.max(earliestMinutes, openMin);
     const startMin =
-      Math.ceil(rawStart / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
+      Math.ceil(rawStart / slotInterval) * slotInterval;
 
     for (
       let min = startMin;
-      min < closeMin && slots.length < MAX_SLOTS;
-      min += SLOT_INTERVAL_MINUTES
+      min < closeMin && slots.length < maxSlots;
+      min += slotInterval
     ) {
       const h = Math.floor(min / 60);
       const m = min % 60;
@@ -171,7 +172,7 @@ export async function GET(request: NextRequest) {
 
     // Find which slot this falls into
     const slotMin =
-      Math.floor(pickupMin / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
+      Math.floor(pickupMin / slotInterval) * slotInterval;
     const slotH = Math.floor(slotMin / 60);
     const slotM = slotMin % 60;
     const slotKey = `${slotH.toString().padStart(2, "0")}:${slotM.toString().padStart(2, "0")}`;

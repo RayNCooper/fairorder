@@ -192,9 +192,10 @@ export async function POST(request: NextRequest) {
         }
         // Check slot capacity if maxOrdersPerSlot is set
         if (location.maxOrdersPerSlot) {
+          const interval = location.slotIntervalMinutes ?? 15;
           const slotStart = new Date(parsed);
-          slotStart.setMinutes(Math.floor(slotStart.getMinutes() / 15) * 15, 0, 0);
-          const slotEnd = new Date(slotStart.getTime() + 15 * 60 * 1000);
+          slotStart.setMinutes(Math.floor(slotStart.getMinutes() / interval) * interval, 0, 0);
+          const slotEnd = new Date(slotStart.getTime() + interval * 60 * 1000);
 
           const slotCount = await tx.order.count({
             where: {
