@@ -47,6 +47,7 @@ model Location {
   timezone String @default("Europe/Berlin")
 
   orderLeadTimeMinutes Int @default(10)
+  slotIntervalMinutes  Int @default(15)
   maxActiveOrders      Int @default(50)
   maxOrdersPerSlot     Int?
 
