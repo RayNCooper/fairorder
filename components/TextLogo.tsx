@@ -21,7 +21,7 @@ export function TextLogo({ className, size = "inline" }: TextLogoProps) {
   return (
     <span
       className={cn(
-        "font-extrabold tracking-tight select-none whitespace-nowrap",
+        "font-extrabold tracking-tighter select-none whitespace-nowrap",
         sizeClasses[size],
         className
       )}

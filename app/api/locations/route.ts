@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ location }, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error("POST /api/locations error:", error);
     return NextResponse.json(
       { error: "Ein Fehler ist aufgetreten." },
       { status: 500 }

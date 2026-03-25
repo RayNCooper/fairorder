@@ -17,6 +17,7 @@ interface MenuItem {
   imageUrl: string | null;
   allergens: string[];
   dietaryTags: string[];
+  isAvailable?: boolean;
 }
 
 interface Category {
@@ -979,10 +980,12 @@ function MenuItemCard({
   onIncrement: () => void;
   onDecrement: () => void;
 }) {
+  const unavailable = item.isAvailable === false;
+
   return (
-    <div className="flex gap-4 border border-stone-200 bg-white p-4">
+    <div className={`flex gap-4 border border-stone-200 bg-white p-4${unavailable ? " opacity-50" : ""}`}>
       {item.imageUrl && (
-        <div className="h-16 w-16 shrink-0 overflow-hidden bg-stone-100">
+        <div className={`h-16 w-16 shrink-0 overflow-hidden bg-stone-100${unavailable ? " grayscale" : ""}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={item.imageUrl}
@@ -995,7 +998,14 @@ function MenuItemCard({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-bold text-stone-900">{item.name}</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-sm font-bold text-stone-900">{item.name}</h3>
+            {unavailable && (
+              <span className="font-mono text-[10px] font-semibold uppercase text-stone-400">
+                Ausverkauft
+              </span>
+            )}
+          </div>
           <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-stone-900">
             {formatPrice(item.price)}&nbsp;&euro;
           </span>
@@ -1027,7 +1037,7 @@ function MenuItemCard({
         )}
 
         {/* Add / quantity controls */}
-        {orderingEnabled && (
+        {orderingEnabled && !unavailable && (
           <div className="mt-3">
             {quantity === 0 ? (
               <button

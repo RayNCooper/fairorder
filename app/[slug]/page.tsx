@@ -33,13 +33,12 @@ export default async function PublicMenuPage({ params }: MenuPageProps) {
         orderBy: { sortOrder: "asc" },
         include: {
           menuItems: {
-            where: { isAvailable: true },
             orderBy: { sortOrder: "asc" },
           },
         },
       },
       menuItems: {
-        where: { isAvailable: true, categoryId: null },
+        where: { categoryId: null },
         orderBy: { sortOrder: "asc" },
       },
     },
@@ -59,6 +58,7 @@ export default async function PublicMenuPage({ params }: MenuPageProps) {
       imageUrl: item.imageUrl,
       allergens: item.allergens,
       dietaryTags: item.dietaryTags,
+      isAvailable: item.isAvailable,
     })),
   }));
 
@@ -70,6 +70,7 @@ export default async function PublicMenuPage({ params }: MenuPageProps) {
     imageUrl: item.imageUrl,
     allergens: item.allergens,
     dietaryTags: item.dietaryTags,
+    isAvailable: item.isAvailable,
   }));
 
   return (

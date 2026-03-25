@@ -37,7 +37,7 @@ export default async function Image() {
             display: "flex",
             fontSize: 64,
             fontWeight: 800,
-            letterSpacing: "-0.02em",
+            letterSpacing: "-0.04em",
             marginBottom: 48,
           }}
         >
