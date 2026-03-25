@@ -1,6 +1,7 @@
 services:
   app:
     build: .
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
@@ -21,7 +22,7 @@ services:
       DB_HOST: "db"
       DB_PORT: "5432"
       DB_USER: "fairorder"
-      CRON_SECRET: "${CRON_SECRET:?Set CRON_SECRET in your environment}"
+      CRON_SECRET: "${CRON_SECRET:-dev-cron-secret-change-in-production}"
     depends_on:
       db:
         condition: service_healthy
@@ -71,7 +72,7 @@ services:
     depends_on:
       - app
     environment:
-      CRON_SECRET: "${CRON_SECRET:?Set CRON_SECRET in your environment}"
+      CRON_SECRET: "${CRON_SECRET:-dev-cron-secret-change-in-production}"
     entrypoint: >
       /bin/sh -c "
       echo '*/2 * * * * wget -qO- --header=\"Authorization: Bearer '\"$$CRON_SECRET\"'\" http://app:3000/api/cron/verify-payments > /proc/1/fd/1 2>&1' | crontab -
@@ -83,8 +84,6 @@ services:
     ports:
       - "8025:8025"
       - "1025:1025"
-    profiles:
-      - mail
 
 volumes:
   pgdata:
