@@ -29,6 +29,7 @@ const validLocation = {
   maxActiveOrders: 50,
   maxOrdersPerSlot: null,
   orderLeadTimeMinutes: 10,
+  slotIntervalMinutes: 15,
 }
 
 const validMenuItem = {

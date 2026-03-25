@@ -62,6 +62,7 @@ describe("GET /api/orders/available-slots", () => {
       operatingHours: null,
       timezone: "Europe/Berlin",
       orderLeadTimeMinutes: 10,
+      slotIntervalMinutes: 15,
       maxOrdersPerSlot: null,
     } as never)
     const res = await GET(makeRequest({ locationId: "loc-1" }))
@@ -87,6 +88,7 @@ describe("GET /api/orders/available-slots", () => {
       },
       timezone: "Europe/Berlin",
       orderLeadTimeMinutes: 10,
+      slotIntervalMinutes: 15,
       maxOrdersPerSlot: null,
     } as never)
 
@@ -118,6 +120,7 @@ describe("GET /api/orders/available-slots", () => {
       },
       timezone: "Europe/Berlin",
       orderLeadTimeMinutes: 10,
+      slotIntervalMinutes: 15,
       maxOrdersPerSlot: 1,
     } as never)
 
