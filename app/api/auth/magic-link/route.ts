@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.MAGIC_LINK_BASE_URL ?? "http://localhost:3000";
     const magicLink = `${baseUrl}/verify-email?token=${token}`;
 
-    const { subject, body } = buildMagicLinkEmail(magicLink);
+    const { subject, body } = await buildMagicLinkEmail(magicLink);
     const sent = await sendEmail({ to: normalizedEmail, subject, body });
 
     if (!sent) {

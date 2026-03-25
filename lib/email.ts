@@ -3,8 +3,14 @@
 //   "plunk"   — Plunk ESP API (default in production)
 //   "smtp"    — Any SMTP server via nodemailer (self-hosting)
 //   "console" — Logs to console (default in development)
+//
+// Templates use @react-email/components (see emails/ directory).
 
 import type { Transporter } from "nodemailer";
+import { render } from "@react-email/components";
+import { createElement } from "react";
+import MagicLinkEmail from "@/emails/magic-link";
+import OrderReadyEmail from "@/emails/order-ready";
 
 const PLUNK_BASE_URL = "https://next-api.useplunk.com";
 
@@ -120,29 +126,41 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
   }
 }
 
-export function buildMagicLinkEmail(magicLink: string): { subject: string; body: string } {
+// ── Email builders (react-email templates) ──
+
+function getBaseUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://app.fair-order.de";
+}
+
+export async function buildMagicLinkEmail(
+  magicLink: string
+): Promise<{ subject: string; body: string }> {
+  const html = await render(
+    createElement(MagicLinkEmail, { magicLink, baseUrl: getBaseUrl() })
+  );
+
   return {
     subject: "Dein Login-Link für FairOrder",
-    body: `
-      <div style="font-family: 'Plus Jakarta Sans', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
-        <h2 style="font-size: 24px; font-weight: 800; margin: 0 0 8px;">FairOrder</h2>
-        <p style="color: #78716C; margin: 0 0 32px;">Dein Speiseplan — in 5 Minuten live.</p>
+    body: html,
+  };
+}
 
-        <p style="margin: 0 0 24px;">Klicke auf den Button, um dich einzuloggen:</p>
+export async function buildOrderReadyEmail(
+  orderNumber: number,
+  customerName: string,
+  locationName: string
+): Promise<{ subject: string; body: string }> {
+  const html = await render(
+    createElement(OrderReadyEmail, {
+      orderNumber,
+      customerName,
+      locationName,
+      baseUrl: getBaseUrl(),
+    })
+  );
 
-        <a href="${magicLink}"
-           style="display: inline-block; background: #16A34A; color: white; padding: 12px 32px; text-decoration: none; font-weight: 600; font-size: 14px;">
-          Einloggen
-        </a>
-
-        <p style="color: #78716C; font-size: 13px; margin: 32px 0 0;">
-          Dieser Link ist 15 Minuten gültig. Falls du diese E-Mail nicht angefordert hast, kannst du sie ignorieren.
-        </p>
-
-        <p style="color: #A8A29E; font-size: 11px; font-family: 'JetBrains Mono', monospace; margin: 24px 0 0;">
-          ${magicLink}
-        </p>
-      </div>
-    `.trim(),
+  return {
+    subject: `Deine Bestellung #${orderNumber} ist bereit!`,
+    body: html,
   };
 }
