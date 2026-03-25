@@ -2,6 +2,27 @@
 
 All notable changes to the FairOrder product app are documented in this file.
 
+## [0.5.1.0] - 2026-03-26
+
+### Added
+- Configurable order time slots — operators pick 5/10/15/20/25/30 minute intervals (was hardcoded 15)
+- Multiple opening hours per day — support for lunch/dinner splits and break periods
+- Feature toggle cards — side-by-side preorder and payment cards with visual dependency chain
+- Confirmation dialogs when disabling preorders or payments (destructive actions only)
+- Server-side operating hours validation — rejects malformed times, overlapping ranges, close-before-open
+- Server-side preorder→payment enforcement — disabling preorders auto-disables payment
+
+### Changed
+- Settings page reorganized: feature toggles (immediate-save) separated from sub-settings (deferred-save)
+- Payment card disabled with overlay when preorders are off
+- Slot interval selector replaces hardcoded 15-minute window in both display and capacity enforcement
+- Operating hours editor supports add/remove time ranges with smart defaults and overlap detection
+
+### Fixed
+- Order capacity check used hardcoded 15-minute buckets regardless of configured interval
+- Operating hours validation accepted malformed time strings (NaN bypass)
+- Adding a time slot past 23:00 could generate invalid 24:00+ times
+
 ## [0.5.0.1] - 2026-03-25
 
 ### Fixed

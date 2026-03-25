@@ -12,7 +12,7 @@ export default function OnboardingLayout({
           <TextLogo size="md" />
         </h1>
       </div>
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-2xl has-[.onboarding-wide]:max-w-4xl">
         {children}
       </div>
     </div>

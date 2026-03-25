@@ -50,7 +50,77 @@ export async function PUT(
     }
 
     if (body.operatingHours !== undefined) {
+      if (body.operatingHours !== null) {
+        // Validate operatingHours structure
+        if (typeof body.operatingHours !== "object" || Array.isArray(body.operatingHours)) {
+          return NextResponse.json(
+            { error: "operatingHours muss ein Objekt sein." },
+            { status: 400 }
+          );
+        }
+        const validDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+        const TIME_RE = /^\d{2}:\d{2}$/;
+        const parseTime = (t: string): number => {
+          const [h, m] = t.split(":").map(Number);
+          return h * 60 + m;
+        };
+        for (const [day, slots] of Object.entries(body.operatingHours)) {
+          if (!validDays.includes(day)) continue;
+          if (slots === null) continue;
+          if (!Array.isArray(slots)) {
+            return NextResponse.json(
+              { error: `${day}: Öffnungszeiten müssen ein Array sein.` },
+              { status: 400 }
+            );
+          }
+          for (const slot of slots as Array<{ open?: string; close?: string }>) {
+            if (!slot.open || !slot.close) {
+              return NextResponse.json(
+                { error: `${day}: Jeder Zeitraum braucht Öffnungs- und Schließzeit.` },
+                { status: 400 }
+              );
+            }
+            if (!TIME_RE.test(slot.open) || !TIME_RE.test(slot.close)) {
+              return NextResponse.json(
+                { error: `${day}: Zeitformat muss HH:MM sein.` },
+                { status: 400 }
+              );
+            }
+            const openMin = parseTime(slot.open);
+            const closeMin = parseTime(slot.close);
+            if (closeMin <= openMin) {
+              return NextResponse.json(
+                { error: `${day}: Schließzeit muss nach Öffnungszeit liegen.` },
+                { status: 400 }
+              );
+            }
+          }
+          // Check for overlaps
+          const sortedSlots = [...(slots as Array<{ open: string; close: string }>)].sort(
+            (a, b) => parseTime(a.open) - parseTime(b.open)
+          );
+          for (let i = 1; i < sortedSlots.length; i++) {
+            if (parseTime(sortedSlots[i].open) < parseTime(sortedSlots[i - 1].close)) {
+              return NextResponse.json(
+                { error: `${day}: Zeiträume dürfen sich nicht überschneiden.` },
+                { status: 400 }
+              );
+            }
+          }
+        }
+      }
       updateData.operatingHours = body.operatingHours;
+    }
+
+    if (body.slotIntervalMinutes !== undefined) {
+      const interval = Number(body.slotIntervalMinutes);
+      if (![5, 10, 15, 20, 25, 30].includes(interval)) {
+        return NextResponse.json(
+          { error: "Zeitfenster muss 5, 10, 15, 20, 25 oder 30 Minuten sein." },
+          { status: 400 }
+        );
+      }
+      updateData.slotIntervalMinutes = interval;
     }
 
     if (body.orderingEnabled !== undefined) {
@@ -61,6 +131,10 @@ export async function PUT(
         );
       }
       updateData.orderingEnabled = body.orderingEnabled;
+      // Disabling preorders also disables payment
+      if (!body.orderingEnabled) {
+        updateData.paymentEnabled = false;
+      }
     }
 
     if (body.maxActiveOrders !== undefined) {

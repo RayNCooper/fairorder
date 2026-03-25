@@ -4,8 +4,7 @@ import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import {
   LocationSettingsForm,
-  OrderSettingsForm,
-  PaymentSettingsForm,
+  FeaturesSection,
   AccountSection,
 } from "@/components/dashboard/settings-forms";
 
@@ -33,6 +32,7 @@ export default async function SettingsPage() {
         ? location.operatingHours
         : JSON.stringify(location.operatingHours, null, 2)
       : null,
+    slotIntervalMinutes: location.slotIntervalMinutes ?? 15,
     orderingEnabled: location.orderingEnabled,
     maxActiveOrders: location.maxActiveOrders,
     maxOrdersPerSlot: location.maxOrdersPerSlot,
@@ -50,8 +50,7 @@ export default async function SettingsPage() {
 
       <div className="space-y-4">
         <LocationSettingsForm location={locationData} />
-        <OrderSettingsForm location={locationData} />
-        <PaymentSettingsForm location={locationData} />
+        <FeaturesSection location={locationData} />
         <AccountSection user={userData} />
       </div>
     </div>

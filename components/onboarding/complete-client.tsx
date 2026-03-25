@@ -66,21 +66,32 @@ export function CompleteQR({
       ctx.font = "bold 48px 'Plus Jakarta Sans', sans-serif";
       ctx.fillText("Jetzt Speisekarte ansehen", w / 2, qrY + qrSize + 180);
 
-      // "Powered by FairOrder" at bottom
-      ctx.fillStyle = "#999999";
-      ctx.font = "28px 'Plus Jakarta Sans', sans-serif";
-      ctx.fillText("app.fair-order.de", w / 2, h - 80);
+      // Logo at bottom
+      const logoImg = new Image();
+      logoImg.onload = () => {
+        const logoMaxH = 60;
+        const logoScale = logoMaxH / logoImg.naturalHeight;
+        const logoW = logoImg.naturalWidth * logoScale;
+        ctx.drawImage(
+          logoImg,
+          (w - logoW) / 2,
+          h - 80 - logoMaxH / 2,
+          logoW,
+          logoMaxH
+        );
 
-      // Download
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${locationSlug}-qr-poster.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }, "image/png");
+        // Download
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${locationSlug}-qr-poster.png`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }, "image/png");
+      };
+      logoImg.src = "/images/logo.png";
 
       URL.revokeObjectURL(svgUrl);
     };

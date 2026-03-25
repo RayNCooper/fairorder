@@ -34,7 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState } from "@/components/EmptyState";
 import {
   IconPlus,
   IconPencil,
@@ -44,6 +43,7 @@ import {
   IconUpload,
   IconX,
   IconLoader2,
+  IconQuestionMark,
 } from "@tabler/icons-react";
 
 interface MenuItem {
@@ -69,15 +69,119 @@ interface Category {
 
 interface MenuManagerProps {
   initialCategories: Category[];
+  uncategorizedItems?: MenuItem[];
 }
+
+const ALLERGENS = [
+  "Gluten",
+  "Krebstiere",
+  "Eier",
+  "Fisch",
+  "Erdnüsse",
+  "Soja",
+  "Milch",
+  "Schalenfrüchte",
+  "Sellerie",
+  "Senf",
+  "Sesam",
+  "Sulfite",
+  "Lupinen",
+  "Weichtiere",
+] as const;
 
 function formatPrice(price: string | number): string {
   const num = typeof price === "string" ? parseFloat(price) : price;
   return num.toFixed(2).replace(".", ",");
 }
 
-export function MenuManager({ initialCategories }: MenuManagerProps) {
+export function MenuManager({ initialCategories, uncategorizedItems: initialUncategorized = [] }: MenuManagerProps) {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [uncategorized, setUncategorized] = useState<MenuItem[]>(initialUncategorized);
+
+  // Drag and drop state
+  const [dragItemId, setDragItemId] = useState<string | null>(null);
+  const [dragSourceCategory, setDragSourceCategory] = useState<string | null>(null);
+  const [dropTargetCategory, setDropTargetCategory] = useState<string | null>(null);
+
+  function handleDragStart(itemId: string, sourceCategoryId: string | null) {
+    setDragItemId(itemId);
+    setDragSourceCategory(sourceCategoryId);
+  }
+
+  function handleDragEnd() {
+    setDragItemId(null);
+    setDragSourceCategory(null);
+    setDropTargetCategory(null);
+  }
+
+  function handleDragOver(e: React.DragEvent, categoryId: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dropTargetCategory !== categoryId) {
+      setDropTargetCategory(categoryId);
+    }
+  }
+
+  function handleDragLeave(e: React.DragEvent, categoryId: string) {
+    // Only clear if we're leaving the container, not entering a child
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      if (dropTargetCategory === categoryId) {
+        setDropTargetCategory(null);
+      }
+    }
+  }
+
+  async function handleDrop(e: React.DragEvent, targetCategoryId: string) {
+    e.preventDefault();
+    setDropTargetCategory(null);
+
+    if (!dragItemId || dragSourceCategory === targetCategoryId) return;
+
+    // Find the item from source
+    let draggedItem: MenuItem | undefined;
+    if (dragSourceCategory === null) {
+      draggedItem = uncategorized.find((i) => i.id === dragItemId);
+    } else {
+      const sourceCat = categories.find((c) => c.id === dragSourceCategory);
+      draggedItem = sourceCat?.menuItems.find((i) => i.id === dragItemId);
+    }
+    if (!draggedItem) return;
+
+    const movedItem = { ...draggedItem, categoryId: targetCategoryId };
+
+    // Optimistic update
+    if (dragSourceCategory === null) {
+      setUncategorized((prev) => prev.filter((i) => i.id !== dragItemId));
+    }
+    setCategories((prev) =>
+      prev.map((cat) => {
+        let items = cat.menuItems;
+        // Remove from source category
+        if (cat.id === dragSourceCategory) {
+          items = items.filter((i) => i.id !== dragItemId);
+        }
+        // Add to target category
+        if (cat.id === targetCategoryId) {
+          items = [...items, movedItem];
+        }
+        return { ...cat, menuItems: items };
+      })
+    );
+
+    // Persist
+    try {
+      await fetch(`/api/menu-items/${dragItemId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId: targetCategoryId }),
+      });
+    } catch {
+      // Revert on error — reload page to reset state
+      window.location.reload();
+    }
+
+    handleDragEnd();
+  }
 
   // Category dialog state
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -95,6 +199,7 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
     imageUrl: "",
     categoryId: "",
     isAvailable: true,
+    allergens: [] as string[],
   });
   const [itemSaving, setItemSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -205,6 +310,7 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
       imageUrl: "",
       categoryId: categoryId || "",
       isAvailable: true,
+      allergens: [],
     });
     setError(null);
     setItemDialogOpen(true);
@@ -219,6 +325,7 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
       imageUrl: item.imageUrl || "",
       categoryId: item.categoryId || "",
       isAvailable: item.isAvailable,
+      allergens: item.allergens || [],
     });
     setError(null);
     setItemDialogOpen(true);
@@ -248,6 +355,7 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
         imageUrl: itemForm.imageUrl.trim() || null,
         categoryId: itemForm.categoryId || null,
         isAvailable: itemForm.isAvailable,
+        allergens: itemForm.allergens,
       };
 
       if (editingItem) {
@@ -264,6 +372,11 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
         }
 
         const { menuItem } = await res.json();
+
+        // Remove from uncategorized if it was there
+        setUncategorized((prev) =>
+          prev.filter((i) => i.id !== menuItem.id)
+        );
 
         setCategories((prev) =>
           prev.map((cat) => {
@@ -328,6 +441,7 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
             menuItems: cat.menuItems.filter((i) => i.id !== id),
           }))
         );
+        setUncategorized((prev) => prev.filter((i) => i.id !== id));
       }
     } catch {
       // Silently fail
@@ -348,6 +462,9 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
         ),
       }))
     );
+    setUncategorized((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, isAvailable: newValue } : i))
+    );
 
     try {
       await fetch(`/api/menu-items/${item.id}`, {
@@ -364,6 +481,11 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
             i.id === item.id ? { ...i, isAvailable: !newValue } : i
           ),
         }))
+      );
+      setUncategorized((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? { ...i, isAvailable: !newValue } : i
+        )
       );
     }
   }
@@ -408,17 +530,27 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
   if (categories.length === 0) {
     return (
       <>
-        <EmptyState
-          illustration={
-            <IconToolsKitchen2 size={64} stroke={1.5} />
-          }
-          title="Noch keine Speisekarte"
-          description="Erstelle deine erste Kategorie, um Gerichte hinzuzufügen. Du kannst z.B. mit Vorspeisen, Hauptgerichte oder Getränke starten."
-          action={{
-            label: "Erste Kategorie erstellen",
-            onClick: openAddCategory,
-          }}
-        />
+        {/* CTA */}
+        <div className="flex flex-col items-center text-center py-12">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center border-2 border-stone-200 bg-white">
+            <IconToolsKitchen2 size={28} stroke={1.5} className="text-stone-400" />
+          </div>
+          <h3 className="text-lg font-extrabold tracking-tight">
+            Speisekarte aufbauen
+          </h3>
+          <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            Organisiere dein Angebot in Kategorien — z.B. Vorspeisen, Hauptgerichte, Getränke.
+            Deine Gäste sehen die Karte genau in dieser Struktur.
+          </p>
+          <Button
+            className="mt-5 rounded-none"
+            onClick={openAddCategory}
+          >
+            Erste Kategorie erstellen
+          </Button>
+        </div>
+
+
 
         {/* Category Dialog — must be in DOM for empty state button to work */}
         <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
@@ -476,26 +608,141 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
 
   return (
     <>
+      {/* Uncategorized items */}
+      {uncategorized.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between border-b-2 border-amber-400 pb-3">
+            <div className="flex items-baseline gap-3">
+              <div className="flex h-5 w-5 translate-y-0.5 items-center justify-center bg-amber-100">
+                <IconQuestionMark size={14} className="text-amber-600" />
+              </div>
+              <h2 className="text-lg font-extrabold tracking-tight text-amber-700">
+                Nicht zugeordnet
+              </h2>
+              <span className="font-mono text-xs text-amber-500">
+                {uncategorized.length}{" "}
+                {uncategorized.length === 1 ? "Artikel" : "Artikel"}
+              </span>
+            </div>
+          </div>
+          <div className="border-l-3 border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            Diese Artikel sind keiner Kategorie zugeordnet. Ziehe sie per Drag &amp; Drop in eine Kategorie.
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {uncategorized.map((item) => (
+              <div
+                key={item.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  handleDragStart(item.id, null);
+                }}
+                onDragEnd={handleDragEnd}
+                className={cn(
+                  "group relative border border-amber-200 bg-white p-4 transition-colors hover:border-amber-300 cursor-grab active:cursor-grabbing",
+                  dragItemId === item.id && "opacity-40",
+                  !item.isAvailable && "opacity-60"
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <IconGripVertical
+                    size={16}
+                    className="mt-0.5 shrink-0 text-amber-300"
+                  />
+                  {item.imageUrl && (
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.name}
+                      width={48}
+                      height={48}
+                      className="h-12 w-12 shrink-0 object-cover border border-stone-200"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-bold">
+                      {item.name}
+                    </h3>
+                    {item.description && (
+                      <p className="mt-1 line-clamp-2 text-xs text-stone-500">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                  <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-stone-900">
+                    {formatPrice(item.price)}&nbsp;&euro;
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="mt-3 flex items-center justify-end border-t border-stone-100 pt-3">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => openEditItem(item)}
+                    >
+                      <IconPencil size={14} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() =>
+                        setDeleteDialog({
+                          type: "item",
+                          id: item.id,
+                          name: item.name,
+                        })
+                      }
+                    >
+                      <IconTrash size={14} />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Category list */}
       <div className="space-y-8">
         {categories.map((category) => (
-          <section key={category.id} className="space-y-3">
+          <section
+            key={category.id}
+            className="space-y-3"
+            onDragOver={(e) => handleDragOver(e, category.id)}
+            onDragLeave={(e) => handleDragLeave(e, category.id)}
+            onDrop={(e) => handleDrop(e, category.id)}
+          >
             {/* Category header */}
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-              <div className="flex items-center gap-3">
+            <div className={cn(
+              "flex items-center justify-between border-b pb-3 transition-colors",
+              dropTargetCategory === category.id
+                ? "border-green-500"
+                : "border-stone-200"
+            )}>
+              <div className="flex items-baseline gap-3">
                 <IconGripVertical
                   size={18}
-                  className="text-stone-300 cursor-grab"
+                  className="translate-y-0.5 text-stone-300 cursor-grab"
                 />
-                <h2 className="text-lg font-extrabold tracking-tight">
+                <h2 className={cn(
+                  "text-lg font-extrabold tracking-tight transition-colors",
+                  dropTargetCategory === category.id && "text-green-700"
+                )}>
                   {category.name}
                 </h2>
                 {!category.isActive && (
-                  <Badge variant="secondary" className="rounded-none text-xs">
+                  <Badge variant="secondary" className="rounded-none text-xs translate-y-[-1px]">
                     Inaktiv
                   </Badge>
                 )}
-                <span className="font-mono text-xs text-stone-400">
+                <span className={cn(
+                  "font-mono text-xs transition-colors",
+                  dropTargetCategory === category.id
+                    ? "text-green-600"
+                    : "text-stone-400"
+                )}>
                   {category.menuItems.length}{" "}
                   {category.menuItems.length === 1 ? "Artikel" : "Artikel"}
                 </span>
@@ -536,7 +783,12 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
 
             {/* Menu items grid */}
             {category.menuItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className={cn(
+                "flex flex-col items-center justify-center py-8 text-center border-2 border-dashed",
+                dropTargetCategory === category.id
+                  ? "border-green-300"
+                  : "border-transparent"
+              )}>
                 <p className="text-sm text-stone-400">
                   Noch keine Artikel in dieser Kategorie.
                 </p>
@@ -555,12 +807,23 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
                 {category.menuItems.map((item) => (
                   <div
                     key={item.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      handleDragStart(item.id, category.id);
+                    }}
+                    onDragEnd={handleDragEnd}
                     className={cn(
-                      "group relative border border-stone-200 bg-white p-4 transition-colors hover:border-stone-300",
+                      "group relative border border-stone-200 bg-white p-4 transition-colors hover:border-stone-300 cursor-grab active:cursor-grabbing",
+                      dragItemId === item.id && "opacity-40",
                       !item.isAvailable && "opacity-60"
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
+                      <IconGripVertical
+                        size={16}
+                        className="mt-0.5 shrink-0 text-stone-300"
+                      />
                       {item.imageUrl && (
                         <Image
                           src={item.imageUrl}
@@ -841,6 +1104,37 @@ export function MenuManager({ initialCategories }: MenuManagerProps) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Allergene</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {ALLERGENS.map((allergen) => {
+                  const active = itemForm.allergens.includes(allergen);
+                  return (
+                    <button
+                      key={allergen}
+                      type="button"
+                      onClick={() =>
+                        setItemForm((f) => ({
+                          ...f,
+                          allergens: active
+                            ? f.allergens.filter((a) => a !== allergen)
+                            : [...f.allergens, allergen],
+                        }))
+                      }
+                      className={cn(
+                        "rounded-none border px-2.5 py-1 text-xs font-medium transition-colors",
+                        active
+                          ? "border-stone-900 bg-stone-900 text-white"
+                          : "border-stone-200 bg-white text-stone-600 hover:border-stone-400"
+                      )}
+                    >
+                      {allergen}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

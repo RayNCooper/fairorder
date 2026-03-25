@@ -22,15 +22,21 @@ export default async function MenuPage() {
     redirect("/setup");
   }
 
-  const categories = await db.category.findMany({
-    where: { locationId: location.id },
-    include: {
-      menuItems: {
-        orderBy: { sortOrder: "asc" },
+  const [categories, uncategorizedItems] = await Promise.all([
+    db.category.findMany({
+      where: { locationId: location.id },
+      include: {
+        menuItems: {
+          orderBy: { sortOrder: "asc" },
+        },
       },
-    },
-    orderBy: { sortOrder: "asc" },
-  });
+      orderBy: { sortOrder: "asc" },
+    }),
+    db.menuItem.findMany({
+      where: { locationId: location.id, categoryId: null },
+      orderBy: { sortOrder: "asc" },
+    }),
+  ]);
 
   // Serialize Decimal fields to strings for client component
   const serializedCategories = categories.map((cat: typeof categories[number]) => ({
@@ -39,6 +45,11 @@ export default async function MenuPage() {
       ...item,
       price: item.price.toString(),
     })),
+  }));
+
+  const serializedUncategorized = uncategorizedItems.map((item: typeof uncategorizedItems[number]) => ({
+    ...item,
+    price: item.price.toString(),
   }));
 
   return (
@@ -57,7 +68,10 @@ export default async function MenuPage() {
         </div>
       </div>
 
-      <MenuManager initialCategories={serializedCategories} />
+      <MenuManager
+        initialCategories={serializedCategories}
+        uncategorizedItems={serializedUncategorized}
+      />
     </div>
   );
 }

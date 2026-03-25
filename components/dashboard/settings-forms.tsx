@@ -7,13 +7,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { IconLoader2 } from "@tabler/icons-react";
+import {
+  IconLoader2,
+  IconClipboardList,
+  IconCreditCard,
+  IconPlus,
+  IconX,
+} from "@tabler/icons-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface LocationData {
   id: string;
   name: string;
   slug: string;
   operatingHours: string | null;
+  slotIntervalMinutes: number;
   orderingEnabled: boolean;
   maxActiveOrders: number;
   maxOrdersPerSlot: number | null;
@@ -73,12 +95,31 @@ function parseHours(raw: string): HoursData {
   return {};
 }
 
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function slotsOverlap(slots: HoursSlot[]): boolean {
+  const valid = slots.filter((s) => s.open && s.close);
+  const sorted = [...valid].sort(
+    (a, b) => timeToMinutes(a.open) - timeToMinutes(b.open)
+  );
+  for (let i = 1; i < sorted.length; i++) {
+    if (timeToMinutes(sorted[i].open) < timeToMinutes(sorted[i - 1].close)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function serializeHours(data: HoursData): string {
   const cleaned: HoursData = {};
   for (const day of WEEKDAYS) {
     const slots = data[day.key];
-    if (slots && slots.length > 0 && slots[0].open && slots[0].close) {
-      cleaned[day.key] = slots;
+    if (slots && slots.length > 0) {
+      const validSlots = slots.filter((s) => s.open && s.close);
+      cleaned[day.key] = validSlots.length > 0 ? validSlots : null;
     } else {
       cleaned[day.key] = null;
     }
@@ -95,13 +136,16 @@ function OperatingHoursEditor({
 }) {
   const data = parseHours(value);
 
-  function updateDay(dayKey: string, open: string, close: string) {
+  function updateSlot(
+    dayKey: string,
+    slotIndex: number,
+    field: "open" | "close",
+    val: string
+  ) {
     const next = { ...data };
-    if (open || close) {
-      next[dayKey] = [{ open, close }];
-    } else {
-      next[dayKey] = null;
-    }
+    const slots = [...(next[dayKey] ?? [])];
+    slots[slotIndex] = { ...slots[slotIndex], [field]: val };
+    next[dayKey] = slots;
     onChange(serializeHours(next));
   }
 
@@ -115,42 +159,108 @@ function OperatingHoursEditor({
     onChange(serializeHours(next));
   }
 
+  function addSlot(dayKey: string) {
+    const next = { ...data };
+    const existing = next[dayKey] ?? [];
+    const lastSlot = existing[existing.length - 1];
+    let defaultOpen = "17:00";
+    let defaultClose = "20:00";
+    if (lastSlot?.close) {
+      const lastCloseMin = timeToMinutes(lastSlot.close);
+      const newOpenMin = Math.min(lastCloseMin + 30, 23 * 60);
+      const newCloseMin = Math.min(newOpenMin + 180, 23 * 60 + 59);
+      if (newOpenMin < newCloseMin) {
+        const oh = Math.floor(newOpenMin / 60);
+        const om = newOpenMin % 60;
+        const ch = Math.floor(newCloseMin / 60);
+        const cm = newCloseMin % 60;
+        defaultOpen = `${String(oh).padStart(2, "0")}:${String(om).padStart(2, "0")}`;
+        defaultClose = `${String(ch).padStart(2, "0")}:${String(cm).padStart(2, "0")}`;
+      }
+    }
+    next[dayKey] = [...existing, { open: defaultOpen, close: defaultClose }];
+    onChange(serializeHours(next));
+  }
+
+  function removeSlot(dayKey: string, slotIndex: number) {
+    const next = { ...data };
+    const slots = [...(next[dayKey] ?? [])];
+    slots.splice(slotIndex, 1);
+    next[dayKey] = slots.length > 0 ? slots : null;
+    onChange(serializeHours(next));
+  }
+
   return (
     <div className="space-y-2">
       {WEEKDAYS.map((day) => {
         const slots = data[day.key];
-        const isActive = slots && slots.length > 0 && (slots[0].open || slots[0].close);
-        const open = slots?.[0]?.open ?? "";
-        const close = slots?.[0]?.close ?? "";
+        const isActive =
+          slots && slots.length > 0 && (slots[0].open || slots[0].close);
+        const hasOverlap = slots && slots.length > 1 && slotsOverlap(slots);
 
         return (
-          <div key={day.key} className="flex items-center gap-3">
-            <div className="flex w-24 items-center gap-2">
-              <Switch
-                checked={!!isActive}
-                onCheckedChange={(checked) => toggleDay(day.key, checked)}
-              />
-              <span className="text-xs font-medium">{day.label}</span>
-            </div>
-            {isActive ? (
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="time"
-                  value={open}
-                  onChange={(e) => updateDay(day.key, e.target.value, close)}
-                  className="w-28 rounded-none font-mono text-xs"
+          <div key={day.key} className="space-y-1">
+            <div className="flex items-start gap-3">
+              <div className="flex w-24 shrink-0 items-center gap-2 pt-1.5">
+                <Switch
+                  checked={!!isActive}
+                  onCheckedChange={(checked) => toggleDay(day.key, checked)}
                 />
-                <span className="text-xs text-muted-foreground">–</span>
-                <Input
-                  type="time"
-                  value={close}
-                  onChange={(e) => updateDay(day.key, open, e.target.value)}
-                  className="w-28 rounded-none font-mono text-xs"
-                />
+                <span className="text-xs font-medium">{day.label}</span>
               </div>
-            ) : (
-              <span className="text-xs text-muted-foreground">Geschlossen</span>
-            )}
+              {isActive ? (
+                <div className="space-y-1.5">
+                  {slots!.map((slot, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <Input
+                        type="time"
+                        value={slot.open}
+                        onChange={(e) =>
+                          updateSlot(day.key, i, "open", e.target.value)
+                        }
+                        className="w-28 rounded-none font-mono text-xs"
+                      />
+                      <span className="text-xs text-muted-foreground">–</span>
+                      <Input
+                        type="time"
+                        value={slot.close}
+                        onChange={(e) =>
+                          updateSlot(day.key, i, "close", e.target.value)
+                        }
+                        className="w-28 rounded-none font-mono text-xs"
+                      />
+                      {slots!.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSlot(day.key, i)}
+                          className="ml-1 text-muted-foreground hover:text-destructive"
+                          aria-label="Zeitraum entfernen"
+                        >
+                          <IconX className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addSlot(day.key)}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <IconPlus className="size-3" />
+                    Zeitraum
+                  </button>
+                  {hasOverlap && (
+                    <p className="text-xs text-red-600">
+                      Zeiträume überschneiden sich.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <span className="pt-1.5 text-xs text-muted-foreground">
+                  Geschlossen
+                </span>
+              )}
+            </div>
           </div>
         );
       })}
@@ -275,10 +385,12 @@ export function LocationSettingsForm({ location }: { location: LocationData }) {
   );
 }
 
+const SLOT_INTERVAL_OPTIONS = [5, 10, 15, 20, 25, 30];
+
 export function OrderSettingsForm({ location }: { location: LocationData }) {
   const router = useRouter();
-  const [orderingEnabled, setOrderingEnabled] = useState(
-    location.orderingEnabled
+  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState(
+    String(location.slotIntervalMinutes ?? 15)
   );
   const [maxActiveOrders, setMaxActiveOrders] = useState(
     String(location.maxActiveOrders)
@@ -301,7 +413,7 @@ export function OrderSettingsForm({ location }: { location: LocationData }) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orderingEnabled,
+          slotIntervalMinutes: Number(slotIntervalMinutes),
           maxActiveOrders: Number(maxActiveOrders),
           maxOrdersPerSlot: maxOrdersPerSlot ? Number(maxOrdersPerSlot) : null,
         }),
@@ -325,21 +437,29 @@ export function OrderSettingsForm({ location }: { location: LocationData }) {
   return (
     <SectionCard
       title="Bestellungen"
-      description="Konfiguriere, ob und wie viele Bestellungen angenommen werden."
+      description="Konfiguriere Zeitfenster und Kapazitäten für Bestellungen."
     >
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="ordering-enabled">Vorbestellungen aktiv</Label>
-            <p className="text-xs text-muted-foreground">
-              Kunden können über deine Menüseite bestellen.
-            </p>
-          </div>
-          <Switch
-            id="ordering-enabled"
-            checked={orderingEnabled}
-            onCheckedChange={setOrderingEnabled}
-          />
+        <div className="space-y-2">
+          <Label htmlFor="slot-interval">Zeitfenster für Bestellungen</Label>
+          <Select
+            value={slotIntervalMinutes}
+            onValueChange={setSlotIntervalMinutes}
+          >
+            <SelectTrigger id="slot-interval" className="w-48 rounded-none font-mono">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SLOT_INTERVAL_OPTIONS.map((min) => (
+                <SelectItem key={min} value={String(min)}>
+                  {min} Minuten
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Bestellungen werden in {slotIntervalMinutes}-Minuten-Fenster gruppiert.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -371,7 +491,7 @@ export function OrderSettingsForm({ location }: { location: LocationData }) {
             className="w-32 rounded-none font-mono"
           />
           <p className="text-xs text-muted-foreground">
-            Begrenzt Bestellungen pro 15-Minuten-Fenster. Leer = unbegrenzt.
+            Begrenzt Bestellungen pro {slotIntervalMinutes}-Minuten-Fenster. Leer = unbegrenzt.
           </p>
         </div>
 
@@ -401,9 +521,8 @@ export function OrderSettingsForm({ location }: { location: LocationData }) {
   );
 }
 
-export function PaymentSettingsForm({ location }: { location: LocationData }) {
+function PaymentMethodsForm({ location }: { location: LocationData }) {
   const router = useRouter();
-  const [paymentEnabled, setPaymentEnabled] = useState(location.paymentEnabled);
   const [acceptCash, setAcceptCash] = useState(
     location.acceptedPayments.includes("cash")
   );
@@ -422,7 +541,7 @@ export function PaymentSettingsForm({ location }: { location: LocationData }) {
     if (acceptCash) acceptedPayments.push("cash");
     if (acceptStripe) acceptedPayments.push("stripe");
 
-    if (paymentEnabled && acceptedPayments.length === 0) {
+    if (acceptedPayments.length === 0) {
       setMessage({ type: "error", text: "Mindestens eine Zahlungsart muss aktiviert sein." });
       return;
     }
@@ -433,7 +552,7 @@ export function PaymentSettingsForm({ location }: { location: LocationData }) {
       const res = await fetch(`/api/locations/${location.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentEnabled, acceptedPayments }),
+        body: JSON.stringify({ acceptedPayments }),
       });
 
       if (!res.ok) {
@@ -452,76 +571,304 @@ export function PaymentSettingsForm({ location }: { location: LocationData }) {
   }
 
   return (
-    <SectionCard
-      title="Zahlung"
-      description="Konfiguriere die Zahlungsoptionen für Vorbestellungen."
-    >
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="payment-enabled">Online-Zahlung aktivieren</Label>
-            <p className="text-xs text-muted-foreground">
-              Kunden können bei der Bestellung direkt bezahlen.
-            </p>
-          </div>
+    <div className="space-y-4 border border-border bg-card p-4">
+      <div className="space-y-3">
+        <p className="text-xs font-semibold">Akzeptierte Zahlungsarten</p>
+        <div className="flex items-center gap-3">
           <Switch
-            id="payment-enabled"
-            checked={paymentEnabled}
-            onCheckedChange={setPaymentEnabled}
+            id="accept-cash"
+            checked={acceptCash}
+            onCheckedChange={setAcceptCash}
           />
-        </div>
-
-        {paymentEnabled && (
-          <div className="space-y-3 border-l-[3px] border-amber-500 bg-amber-50 px-3 py-2">
-            <p className="text-xs font-medium text-amber-800">Akzeptierte Zahlungsarten</p>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="accept-cash" className="text-sm">Barzahlung</Label>
-                <p className="text-xs text-muted-foreground">Zahlung an der Kasse</p>
-              </div>
-              <Switch
-                id="accept-cash"
-                checked={acceptCash}
-                onCheckedChange={setAcceptCash}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="accept-stripe" className="text-sm">Kartenzahlung (Stripe)</Label>
-                <p className="text-xs text-muted-foreground">Kreditkarte, Apple Pay, Google Pay</p>
-              </div>
-              <Switch
-                id="accept-stripe"
-                checked={acceptStripe}
-                onCheckedChange={setAcceptStripe}
-              />
-            </div>
+          <div className="space-y-0.5">
+            <Label htmlFor="accept-cash" className="text-sm">Barzahlung</Label>
+            <p className="text-xs text-muted-foreground">Zahlung an der Kasse</p>
           </div>
-        )}
+        </div>
+        <div className="flex items-center gap-3">
+          <Switch
+            id="accept-stripe"
+            checked={acceptStripe}
+            onCheckedChange={setAcceptStripe}
+          />
+          <div className="space-y-0.5">
+            <Label htmlFor="accept-stripe" className="text-sm">Kartenzahlung (Stripe)</Label>
+            <p className="text-xs text-muted-foreground">Kreditkarte, Apple Pay, Google Pay</p>
+          </div>
+        </div>
+      </div>
 
-        {message && (
+      {message && (
+        <div
+          className={cn(
+            "border-l-[3px] px-3 py-2 text-sm",
+            message.type === "success"
+              ? "border-green-600 bg-green-50 text-green-800"
+              : "border-red-600 bg-red-50 text-red-800"
+          )}
+        >
+          {message.text}
+        </div>
+      )}
+
+      <Button
+        className="rounded-none"
+        onClick={handleSave}
+        disabled={saving}
+      >
+        {saving && <IconLoader2 className="size-4 animate-spin" />}
+        Speichern
+      </Button>
+    </div>
+  );
+}
+
+export function FeaturesSection({ location }: { location: LocationData }) {
+  const router = useRouter();
+  const [orderingEnabled, setOrderingEnabled] = useState(location.orderingEnabled);
+  const [paymentEnabled, setPaymentEnabled] = useState(location.paymentEnabled);
+  const [confirmDialog, setConfirmDialog] = useState<
+    "disable-preorders" | "disable-payment" | null
+  >(null);
+  const [dialogSaving, setDialogSaving] = useState(false);
+  const [dialogError, setDialogError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  async function toggleFeature(
+    field: "orderingEnabled" | "paymentEnabled",
+    value: boolean,
+    extra?: Record<string, unknown>
+  ) {
+    setDialogSaving(true);
+    setDialogError(null);
+    try {
+      const body: Record<string, unknown> = { [field]: value, ...extra };
+      const res = await fetch(`/api/locations/${location.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setDialogError(data.error || "Fehler beim Speichern.");
+        return;
+      }
+
+      if (field === "orderingEnabled") {
+        setOrderingEnabled(value);
+        if (!value) setPaymentEnabled(false);
+      } else {
+        setPaymentEnabled(value);
+      }
+
+      setConfirmDialog(null);
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      setDialogSaving(false);
+    }
+  }
+
+  function handlePreorderToggle(checked: boolean) {
+    if (!checked) {
+      setConfirmDialog("disable-preorders");
+      return;
+    }
+    toggleFeature("orderingEnabled", true);
+  }
+
+  function handlePaymentToggle(checked: boolean) {
+    if (!checked) {
+      setConfirmDialog("disable-payment");
+      return;
+    }
+    toggleFeature("paymentEnabled", true);
+  }
+
+  return (
+    <div className="space-y-4">
+      <SectionCard
+        title="Funktionen"
+        description="Aktiviere Vorbestellungen und Zahlungen für deine Gäste."
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Preorders card */}
           <div
             className={cn(
-              "border-l-[3px] px-3 py-2 text-sm",
-              message.type === "success"
-                ? "border-green-600 bg-green-50 text-green-800"
-                : "border-red-600 bg-red-50 text-red-800"
+              "flex min-h-[160px] flex-col justify-between border p-4",
+              orderingEnabled
+                ? "border-l-[3px] border-l-green-600 border-t-border border-r-border border-b-border"
+                : "border-border"
             )}
           >
-            {message.text}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <IconClipboardList className="size-5 text-muted-foreground" />
+                <h4 className="text-sm font-semibold">Vorbestellungen</h4>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Kunden können über deine Menüseite Bestellungen aufgeben.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <Switch
+                id="ordering-enabled"
+                checked={orderingEnabled}
+                onCheckedChange={handlePreorderToggle}
+              />
+              <Label htmlFor="ordering-enabled" className="text-xs">
+                {orderingEnabled ? "Aktiv" : "Inaktiv"}
+              </Label>
+            </div>
           </div>
-        )}
 
-        <Button
-          className="rounded-none"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving && <IconLoader2 className="size-4 animate-spin" />}
-          Speichern
-        </Button>
-      </div>
-    </SectionCard>
+          {/* Payment card */}
+          <div
+            className={cn(
+              "relative flex min-h-[160px] flex-col justify-between border p-4",
+              paymentEnabled
+                ? "border-l-[3px] border-l-green-600 border-t-border border-r-border border-b-border"
+                : "border-border",
+              !orderingEnabled && "opacity-50"
+            )}
+          >
+            {!orderingEnabled && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-card/60">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Aktiviere zuerst Vorbestellungen
+                </p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <IconCreditCard className="size-5 text-muted-foreground" />
+                <h4 className="text-sm font-semibold">Online-Zahlung</h4>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Kunden können bei der Bestellung direkt bezahlen.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <Switch
+                id="payment-enabled"
+                checked={paymentEnabled}
+                onCheckedChange={handlePaymentToggle}
+                disabled={!orderingEnabled}
+              />
+              <Label htmlFor="payment-enabled" className="text-xs">
+                {paymentEnabled ? "Aktiv" : "Inaktiv"}
+              </Label>
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Sub-settings: order config (shown when preorders active) */}
+      {orderingEnabled && <OrderSettingsForm location={location} />}
+
+      {/* Sub-settings: payment methods (shown when payment active) */}
+      {paymentEnabled && <PaymentMethodsForm location={location} />}
+
+      {/* Disable preorders dialog */}
+      <Dialog
+        open={confirmDialog === "disable-preorders"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDialog(null);
+            setDialogError(null);
+          }
+        }}
+      >
+        <DialogContent className="rounded-none">
+          <DialogHeader>
+            <DialogTitle>Vorbestellungen deaktivieren</DialogTitle>
+            <DialogDescription>
+              Vorbestellungen werden deaktiviert. Laufende Bestellungen sind
+              nicht betroffen. Online-Zahlungen werden ebenfalls deaktiviert.
+            </DialogDescription>
+          </DialogHeader>
+          {dialogError && (
+            <div className="border-l-[3px] border-red-600 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {dialogError}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-none"
+              onClick={() => {
+                setConfirmDialog(null);
+                setDialogError(null);
+              }}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-none"
+              disabled={dialogSaving}
+              onClick={() =>
+                toggleFeature("orderingEnabled", false, {
+                  paymentEnabled: false,
+                })
+              }
+            >
+              {dialogSaving && <IconLoader2 className="size-4 animate-spin" />}
+              Deaktivieren
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable payment dialog */}
+      <Dialog
+        open={confirmDialog === "disable-payment"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDialog(null);
+            setDialogError(null);
+          }
+        }}
+      >
+        <DialogContent className="rounded-none">
+          <DialogHeader>
+            <DialogTitle>Online-Zahlung deaktivieren</DialogTitle>
+            <DialogDescription>
+              Online-Zahlungen werden deaktiviert. Kunden können nur noch bar
+              bezahlen.
+            </DialogDescription>
+          </DialogHeader>
+          {dialogError && (
+            <div className="border-l-[3px] border-red-600 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {dialogError}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-none"
+              onClick={() => {
+                setConfirmDialog(null);
+                setDialogError(null);
+              }}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-none"
+              disabled={dialogSaving}
+              onClick={() => toggleFeature("paymentEnabled", false)}
+            >
+              {dialogSaving && <IconLoader2 className="size-4 animate-spin" />}
+              Deaktivieren
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
