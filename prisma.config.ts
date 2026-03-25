@@ -1,3 +1,4 @@
+// @ts-expect-error — dotenv is a sub-dependency of dotenvx, not directly installed
 try { await import("dotenv/config"); } catch {}
 import { defineConfig } from "prisma/config";
 
