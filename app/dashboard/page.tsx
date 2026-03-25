@@ -33,6 +33,17 @@ export default async function DashboardPage({
 
   const location = locations[0];
 
+  // Query today's orders
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const ordersToday = await db.order.count({
+    where: {
+      locationId: location.id,
+      createdAt: { gte: todayStart },
+    },
+  });
+
   return (
     <div className="space-y-8">
       {verified === "true" && <VerifiedBanner />}
@@ -49,7 +60,7 @@ export default async function DashboardPage({
       <div className="grid gap-4 lg:grid-cols-3">
         <StatCard
           label="Bestellungen heute"
-          value={0}
+          value={ordersToday}
         />
         <StatCard
           label="Menü-Einträge"
