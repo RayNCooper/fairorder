@@ -56,14 +56,15 @@ app/
   api/locations/  # Location CRUD
   api/categories/ # Category CRUD
   api/menu-items/ # Menu item CRUD + bulk import
-  api/orders/     # Order status updates
+  api/orders/     # Order creation, status updates, available time slots
+  api/analytics/  # Aggregated analytics + day-end reports
   api/payment/    # Payment intent creation + status verification (polling)
   api/cron/       # Background jobs (payment sweep)
   api/menu-extraction/ # AI menu extraction (image + URL)
   api/health/     # Health check endpoint
 components/
   auth/           # Magic link form, auth feedback
-  dashboard/      # Nav, menu manager, order list, settings, menu import
+  dashboard/      # Nav, menu manager, order list, settings, menu import, analytics charts
   display/        # Kitchen display (real-time order board)
   onboarding/     # Setup form, AI menu import, QR complete
   public/         # Public menu page, payment form
