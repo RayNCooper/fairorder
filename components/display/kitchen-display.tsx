@@ -18,6 +18,7 @@ interface Order {
   status: OrderStatus;
   customerName: string;
   customerNote: string | null;
+  requestedPickupTime: string | null;
   createdAt: string;
   items: OrderItem[];
 }
@@ -203,9 +204,16 @@ export function KitchenDisplay({ locationName, orders, displayToken }: KitchenDi
                           ))}
                         </ul>
 
+                        {/* Pickup time */}
+                        {order.requestedPickupTime && (
+                          <p className="mt-3 border-t border-stone-800 pt-2 font-mono text-xs text-stone-400">
+                            Abholung: {new Date(order.requestedPickupTime).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
+                          </p>
+                        )}
+
                         {/* Customer note */}
                         {order.customerNote && (
-                          <p className="mt-3 border-t border-stone-800 pt-2 text-xs italic text-stone-500">
+                          <p className="mt-2 text-xs italic text-stone-500">
                             {order.customerNote}
                           </p>
                         )}

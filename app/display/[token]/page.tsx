@@ -44,6 +44,7 @@ export default async function DisplayPage({ params }: DisplayPageProps) {
     status: order.status as "PENDING" | "PREPARING" | "READY",
     customerName: order.customerName,
     customerNote: order.customerNote,
+    requestedPickupTime: order.requestedPickupTime?.toISOString() ?? null,
     createdAt: order.createdAt.toISOString(),
     items: order.items.map((item) => ({
       id: item.id,

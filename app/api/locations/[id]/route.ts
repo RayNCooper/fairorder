@@ -74,6 +74,21 @@ export async function PUT(
       updateData.maxActiveOrders = max;
     }
 
+    if (body.maxOrdersPerSlot !== undefined) {
+      if (body.maxOrdersPerSlot === null) {
+        updateData.maxOrdersPerSlot = null;
+      } else {
+        const max = Number(body.maxOrdersPerSlot);
+        if (isNaN(max) || max < 1 || max > 999) {
+          return NextResponse.json(
+            { error: "Max. Bestellungen pro Zeitfenster muss zwischen 1 und 999 liegen." },
+            { status: 400 }
+          );
+        }
+        updateData.maxOrdersPerSlot = max;
+      }
+    }
+
     if (body.paymentEnabled !== undefined) {
       if (typeof body.paymentEnabled !== "boolean") {
         return NextResponse.json(

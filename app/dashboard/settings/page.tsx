@@ -35,6 +35,7 @@ export default async function SettingsPage() {
       : null,
     orderingEnabled: location.orderingEnabled,
     maxActiveOrders: location.maxActiveOrders,
+    maxOrdersPerSlot: location.maxOrdersPerSlot,
     paymentEnabled: location.paymentEnabled,
     acceptedPayments: location.acceptedPayments,
   };

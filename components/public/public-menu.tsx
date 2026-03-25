@@ -176,13 +176,40 @@ export function PublicMenu({
   const [orderState, setOrderState] = useState<OrderState>("idle");
   const [customerName, setCustomerName] = useState("");
   const [customerNote, setCustomerNote] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [orderNumber, setOrderNumber] = useState<number | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
+  // Pickup time slots
+  const [availableSlots, setAvailableSlots] = useState<{ time: string; label: string; available: boolean; remaining: number | null }[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
   const stripeAvailable = paymentEnabled && acceptedPayments.includes("stripe");
+
+  // Fetch available pickup time slots when cart opens
+  const fetchSlots = useCallback(async () => {
+    setLoadingSlots(true);
+    try {
+      const res = await fetch(`/api/orders/available-slots?locationId=${locationId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableSlots(data.slots ?? []);
+        // Auto-select first available slot
+        const firstAvailable = (data.slots ?? []).find((s: { available: boolean }) => s.available);
+        if (firstAvailable && !selectedSlot) {
+          setSelectedSlot(firstAvailable.time);
+        }
+      }
+    } catch {
+      // Slots unavailable — ordering still works with server-calculated time
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [locationId, selectedSlot]);
 
   // Search & filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -331,6 +358,15 @@ export function PublicMenu({
     setErrorMessage("");
 
     try {
+      // Build pickup time from selected slot
+      let requestedPickupTime: string | undefined;
+      if (selectedSlot) {
+        const today = new Date();
+        const [h, m] = selectedSlot.split(":").map(Number);
+        today.setHours(h, m, 0, 0);
+        requestedPickupTime = today.toISOString();
+      }
+
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -338,6 +374,8 @@ export function PublicMenu({
           locationId,
           customerName: customerName.trim(),
           customerNote: customerNote.trim() || undefined,
+          customerEmail: customerEmail.trim() || undefined,
+          requestedPickupTime,
           items: cart.map((c) => ({
             menuItemId: c.menuItemId,
             quantity: c.quantity,
@@ -382,6 +420,8 @@ export function PublicMenu({
       setCart([]);
       setCustomerName("");
       setCustomerNote("");
+      setCustomerEmail("");
+      setSelectedSlot(null);
     } catch {
       setErrorMessage("Verbindungsfehler. Bitte versuche es erneut.");
       setOrderState("error");
@@ -435,6 +475,8 @@ export function PublicMenu({
                 setCart([]);
                 setCustomerName("");
                 setCustomerNote("");
+                setCustomerEmail("");
+                setSelectedSlot(null);
                 setClientSecret(null);
               }}
               onError={(msg) => {
@@ -732,7 +774,7 @@ export function PublicMenu({
         <div className="fixed inset-x-0 bottom-0 border-t border-stone-200 bg-white px-4 py-3 shadow-lg">
           <button
             className="flex w-full items-center justify-between bg-stone-900 px-4 py-3 text-white hover:bg-stone-800"
-            onClick={() => setOrderState("cart")}
+            onClick={() => { setOrderState("cart"); fetchSlots(); }}
           >
             <span className="flex items-center gap-2 text-sm font-bold">
               <span className="inline-flex h-6 w-6 items-center justify-center bg-white font-mono text-xs font-bold text-stone-900">
@@ -829,6 +871,45 @@ export function PublicMenu({
                     onChange={(e) => setCustomerNote(e.target.value)}
                   />
                 </div>
+              </div>
+
+              {/* Pickup time slot */}
+              {availableSlots.length > 0 && (
+                <div>
+                  <label htmlFor="pickup-time" className="text-sm font-bold text-stone-700">
+                    Abholzeit wählen
+                  </label>
+                  <select
+                    id="pickup-time"
+                    value={selectedSlot ?? ""}
+                    onChange={(e) => setSelectedSlot(e.target.value || null)}
+                    className="mt-1 w-full border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-stone-500 focus:outline-none"
+                  >
+                    {availableSlots.map((slot) => (
+                      <option key={slot.time} value={slot.time} disabled={!slot.available}>
+                        {slot.label}{slot.remaining !== null ? ` (${slot.remaining} frei)` : ""}{!slot.available ? " — voll" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {loadingSlots && (
+                <p className="font-mono text-xs text-stone-400">Zeitfenster werden geladen...</p>
+              )}
+
+              {/* Email notification (optional) */}
+              <div>
+                <label htmlFor="customer-email" className="text-sm font-bold text-stone-700">
+                  E-Mail <span className="font-normal text-stone-400">(optional — für Abholbenachrichtigung)</span>
+                </label>
+                <input
+                  id="customer-email"
+                  type="email"
+                  className="mt-1 w-full border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-stone-500 focus:outline-none"
+                  placeholder="z.B. max@beispiel.de"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                />
               </div>
 
               {/* Payment method */}

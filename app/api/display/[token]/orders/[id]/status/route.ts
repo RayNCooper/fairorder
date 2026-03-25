@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sendEmail, buildOrderReadyEmail } from "@/lib/email";
 
 type OrderStatus =
   | "PENDING"
@@ -104,7 +105,24 @@ export async function PUT(
       );
     }
 
-    const refreshed = await db.order.findUnique({ where: { id } });
+    const refreshed = await db.order.findUnique({
+      where: { id },
+      include: { location: { select: { name: true } } },
+    });
+
+    // Send order-ready notification email (fire-and-forget)
+    if (newStatus === "READY" && refreshed?.customerEmail && !order.readyAt) {
+      buildOrderReadyEmail(
+        refreshed.orderNumber,
+        refreshed.customerName,
+        refreshed.location.name
+      )
+        .then(({ subject, body: emailBody }) =>
+          sendEmail({ to: refreshed.customerEmail!, subject, body: emailBody })
+        )
+        .catch((err) => console.error("Failed to send order-ready email:", err));
+    }
+
     return NextResponse.json({ order: refreshed });
   } catch {
     return NextResponse.json(

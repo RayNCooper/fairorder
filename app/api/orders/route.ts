@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { locationId, customerName, customerNote, items } = body;
+    const { locationId, customerName, customerNote, customerEmail, requestedPickupTime: clientPickupTime, items } = body;
 
     // --- Validate required fields ---
 
@@ -49,6 +49,17 @@ export async function POST(request: NextRequest) {
         { error: `Hinweis darf maximal ${MAX_CUSTOMER_NOTE_LENGTH} Zeichen lang sein.` },
         { status: 400 }
       );
+    }
+
+    // Validate optional customer email
+    if (customerEmail && typeof customerEmail === "string") {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customerEmail.trim())) {
+        return NextResponse.json(
+          { error: "Ungültige E-Mail-Adresse." },
+          { status: 400 }
+        );
+      }
     }
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -167,9 +178,42 @@ export async function POST(request: NextRequest) {
 
       const orderNumber = (lastOrder?.orderNumber ?? 0) + 1;
 
-      const requestedPickupTime = new Date(
-        Date.now() + location.orderLeadTimeMinutes * 60 * 1000
-      );
+      // Use client-provided pickup time or auto-calculate
+      let requestedPickupTime: Date;
+      if (clientPickupTime && typeof clientPickupTime === "string") {
+        const parsed = new Date(clientPickupTime);
+        if (isNaN(parsed.getTime())) {
+          throw new Error("INVALID_PICKUP_TIME");
+        }
+        // Allow 5 min buffer for clock skew
+        const minTime = new Date(Date.now() + (location.orderLeadTimeMinutes - 5) * 60 * 1000);
+        if (parsed < minTime) {
+          throw new Error("PICKUP_TIME_TOO_EARLY");
+        }
+        // Check slot capacity if maxOrdersPerSlot is set
+        if (location.maxOrdersPerSlot) {
+          const slotStart = new Date(parsed);
+          slotStart.setMinutes(Math.floor(slotStart.getMinutes() / 15) * 15, 0, 0);
+          const slotEnd = new Date(slotStart.getTime() + 15 * 60 * 1000);
+
+          const slotCount = await tx.order.count({
+            where: {
+              locationId: locationId as string,
+              status: { notIn: ["COMPLETED", "CANCELLED"] },
+              requestedPickupTime: { gte: slotStart, lt: slotEnd },
+            },
+          });
+
+          if (slotCount >= location.maxOrdersPerSlot) {
+            throw new Error("SLOT_FULL");
+          }
+        }
+        requestedPickupTime = parsed;
+      } else {
+        requestedPickupTime = new Date(
+          Date.now() + location.orderLeadTimeMinutes * 60 * 1000
+        );
+      }
 
       return tx.order.create({
         data: {
@@ -177,6 +221,7 @@ export async function POST(request: NextRequest) {
           orderNumber,
           customerName: String(customerName).trim(),
           customerNote: customerNote ? String(customerNote).trim() || null : null,
+          customerEmail: customerEmail ? String(customerEmail).trim() || null : null,
           requestedPickupTime,
           items: {
             create: [...deduped.entries()].map(([menuItemId, quantity]) => ({
@@ -203,11 +248,31 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "MAX_ACTIVE_ORDERS") {
-      return NextResponse.json(
-        { error: "Maximale Anzahl aktiver Bestellungen erreicht. Bitte versuche es später erneut." },
-        { status: 429 }
-      );
+    if (error instanceof Error) {
+      if (error.message === "MAX_ACTIVE_ORDERS") {
+        return NextResponse.json(
+          { error: "Maximale Anzahl aktiver Bestellungen erreicht. Bitte versuche es später erneut." },
+          { status: 429 }
+        );
+      }
+      if (error.message === "INVALID_PICKUP_TIME") {
+        return NextResponse.json(
+          { error: "Ungültige Abholzeit." },
+          { status: 400 }
+        );
+      }
+      if (error.message === "PICKUP_TIME_TOO_EARLY") {
+        return NextResponse.json(
+          { error: "Die gewählte Abholzeit liegt zu früh. Bitte wähle einen späteren Zeitpunkt." },
+          { status: 400 }
+        );
+      }
+      if (error.message === "SLOT_FULL") {
+        return NextResponse.json(
+          { error: "Dieses Zeitfenster ist leider voll. Bitte wähle einen anderen Zeitpunkt." },
+          { status: 409 }
+        );
+      }
     }
     return NextResponse.json(
       { error: "Bestellung konnte nicht erstellt werden. Bitte versuche es erneut." },

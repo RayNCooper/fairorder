@@ -16,6 +16,7 @@ interface LocationData {
   operatingHours: string | null;
   orderingEnabled: boolean;
   maxActiveOrders: number;
+  maxOrdersPerSlot: number | null;
   paymentEnabled: boolean;
   acceptedPayments: string[];
 }
@@ -282,6 +283,9 @@ export function OrderSettingsForm({ location }: { location: LocationData }) {
   const [maxActiveOrders, setMaxActiveOrders] = useState(
     String(location.maxActiveOrders)
   );
+  const [maxOrdersPerSlot, setMaxOrdersPerSlot] = useState(
+    location.maxOrdersPerSlot ? String(location.maxOrdersPerSlot) : ""
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -299,6 +303,7 @@ export function OrderSettingsForm({ location }: { location: LocationData }) {
         body: JSON.stringify({
           orderingEnabled,
           maxActiveOrders: Number(maxActiveOrders),
+          maxOrdersPerSlot: maxOrdersPerSlot ? Number(maxOrdersPerSlot) : null,
         }),
       });
 
@@ -350,6 +355,23 @@ export function OrderSettingsForm({ location }: { location: LocationData }) {
           />
           <p className="text-xs text-muted-foreground">
             Begrenzt gleichzeitig offene Bestellungen. Standard: 50.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="max-orders-slot">Max. Bestellungen pro Zeitfenster</Label>
+          <Input
+            id="max-orders-slot"
+            type="number"
+            min={1}
+            max={999}
+            value={maxOrdersPerSlot}
+            onChange={(e) => setMaxOrdersPerSlot(e.target.value)}
+            placeholder="Unbegrenzt"
+            className="w-32 rounded-none font-mono"
+          />
+          <p className="text-xs text-muted-foreground">
+            Begrenzt Bestellungen pro 15-Minuten-Fenster. Leer = unbegrenzt.
           </p>
         </div>
 
