@@ -9,7 +9,7 @@ All notable changes to the FairOrder product app are documented in this file.
 - Digital receipt on order confirmation screen with per-rate VAT breakdown (Bonpflicht compliance)
 - Receipt email template with VAT breakdown, legal footer, payment method
 - Impressum page (auto-generated from operator legal info, DDG § 5)
-- Datenschutzerkl&auml;rung page (DSGVO-compliant privacy policy)
+- Datenschutzerklarung page (DSGVO-compliant privacy policy)
 - Legal info settings section in operator dashboard (company name, address, phone, USt-IdNr, responsible person)
 - Bookkeeping export API (CSV with VAT columns, auth-protected, date-filterable)
 - GDPR anonymization API (nulls personal data while retaining financial records for GoBD)
@@ -20,6 +20,15 @@ All notable changes to the FairOrder product app are documented in this file.
 - 11 VAT unit tests including rounding invariant (all amounts 1-10000 at 7% and 19%)
 - 6 export integration tests (auth, validation, CSV format, empty state)
 - eslint-plugin-jsx-a11y for continuous accessibility enforcement
+- PayPal payment support — operators can now accept PayPal alongside card payments and cash
+- Two ways to offer PayPal: natively via PayPal SDK, or through Stripe's automatic payment methods (zero-config)
+- Dedicated `/api/payment/capture` endpoint for PayPal's server-side capture flow
+- PayPal button in guest checkout with `shape: "rect"` matching 0px border-radius design system
+- Mobile redirect recovery — PayPal payments survive full-page redirects on mobile Safari via sessionStorage
+- "Bestellung aufgegeben" pending screen for PayPal compliance holds (PENDING capture status)
+- PayPal toggle in operator dashboard settings (only visible when PayPal API keys are configured)
+- `centsToDecimal()` helper for PayPal's decimal amount format
+- Capture endpoint tests (validation, auth gate, idempotency, PENDING status)
 
 ### Changed
 - Renamed taxRate to vatRate throughout codebase (correct German terminology, mapped to existing DB column)
@@ -28,6 +37,12 @@ All notable changes to the FairOrder product app are documented in this file.
 - Allergen filter logic inverted: dietary tags use AND-include, allergens use AND-exclude
 - CSV export sanitizes cell values to prevent spreadsheet formula injection
 - GDPR anonymize uses case-insensitive email matching
+- Payment providers now auto-detected from API keys — `PAYMENT_PROVIDER` env var deprecated (still honored as fallback)
+- `createPaymentIntent()` and `verifyPayment()` accept optional `method` parameter for caller-driven routing
+- `PaymentMethodSelector` refactored with `PaymentOptionButton` component, supports 3 methods (cash/stripe/paypal)
+- Stripe PaymentIntent creation now includes `automatic_payment_methods: { enabled: true }` for broader payment method support
+- Cron sweep now selects `paymentMethod` from orders and passes it to `verifyPayment()` for correct provider routing
+- `isStripeEnabled()` simplified — checks `STRIPE_SECRET_KEY` directly instead of `PAYMENT_PROVIDER` env var
 
 ## [0.5.3.0] - 2026-03-27
 

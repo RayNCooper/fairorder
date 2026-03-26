@@ -177,11 +177,11 @@ export async function PUT(
       if (
         !Array.isArray(body.acceptedPayments) ||
         !body.acceptedPayments.every(
-          (p: unknown) => typeof p === "string" && ["cash", "stripe"].includes(p as string)
+          (p: unknown) => typeof p === "string" && ["cash", "stripe", "paypal"].includes(p as string)
         )
       ) {
         return NextResponse.json(
-          { error: "acceptedPayments muss ein Array aus 'cash' und/oder 'stripe' sein." },
+          { error: "acceptedPayments muss ein Array aus 'cash', 'stripe' und/oder 'paypal' sein." },
           { status: 400 }
         );
       }

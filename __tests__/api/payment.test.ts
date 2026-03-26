@@ -15,6 +15,8 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/payment", () => ({
   createPaymentIntent: vi.fn(),
+  isStripeEnabled: vi.fn(() => true),
+  isPayPalEnabled: vi.fn(() => false),
 }))
 
 import { POST } from "@/app/api/payment/create-intent/route"
@@ -139,7 +141,8 @@ describe("POST /api/payment/create-intent", () => {
 
     // 8.50 * 2 = 1700 cents + 3.00 * 1 = 300 cents = 2000 cents
     expect(createPaymentIntent).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 2000 })
+      expect.objectContaining({ amount: 2000 }),
+      "stripe"
     )
   })
 
@@ -229,7 +232,8 @@ describe("POST /api/payment/create-intent", () => {
     // Each price is Math.round(price * 100) * qty, summed:
     // Math.round(0.1 * 100) * 1 = 10, Math.round(0.2 * 100) * 1 = 20 => 30 cents
     expect(createPaymentIntent).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 30 })
+      expect.objectContaining({ amount: 30 }),
+      "stripe"
     )
   })
 
@@ -252,7 +256,8 @@ describe("POST /api/payment/create-intent", () => {
     await POST(makeRequest(validBody))
 
     expect(createPaymentIntent).toHaveBeenCalledWith(
-      expect.objectContaining({ customerName: "Gast" })
+      expect.objectContaining({ customerName: "Gast" }),
+      "stripe"
     )
   })
 

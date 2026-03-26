@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { createPaymentIntent } from "@/lib/payment";
+import {
+  createPaymentIntent,
+  retrieveStripePaymentIntent,
+  isStripeEnabled,
+  isPayPalEnabled,
+  type PaymentMethod,
+} from "@/lib/payment";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { locationId, orderId } = body;
+    const { locationId, orderId, method } = body;
 
     if (!locationId || typeof locationId !== "string") {
       return NextResponse.json(
@@ -21,7 +27,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify location exists and has stripe enabled
+    // Determine payment method — explicit param or default to "stripe" for backward compat
+    const validMethods: PaymentMethod[] = ["stripe", "paypal"];
+    if (method && !validMethods.includes(method)) {
+      return NextResponse.json(
+        { error: "Ungültige Zahlungsart." },
+        { status: 400 }
+      );
+    }
+    const paymentMethod: PaymentMethod = method === "paypal" ? "paypal" : "stripe";
+
+    // Verify location exists and has the requested payment method enabled
     const location = await db.location.findUnique({
       where: { id: locationId },
       select: { acceptedPayments: true, paymentEnabled: true },
@@ -34,9 +50,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!location.paymentEnabled || !location.acceptedPayments.includes("stripe")) {
+    if (!location.paymentEnabled) {
       return NextResponse.json(
         { error: "Online-Zahlung ist für diesen Standort nicht aktiviert." },
+        { status: 403 }
+      );
+    }
+
+    // Check that the requested method is accepted by this location
+    if (paymentMethod === "stripe" && !location.acceptedPayments.includes("stripe")) {
+      return NextResponse.json(
+        { error: "Kartenzahlung ist für diesen Standort nicht aktiviert." },
+        { status: 403 }
+      );
+    }
+
+    if (paymentMethod === "paypal" && !location.acceptedPayments.includes("paypal")) {
+      return NextResponse.json(
+        { error: "PayPal ist für diesen Standort nicht aktiviert." },
+        { status: 403 }
+      );
+    }
+
+    // Check that the provider is actually configured
+    if (paymentMethod === "stripe" && !isStripeEnabled()) {
+      return NextResponse.json(
+        { error: "Stripe ist nicht konfiguriert." },
+        { status: 403 }
+      );
+    }
+
+    if (paymentMethod === "paypal" && !isPayPalEnabled()) {
+      return NextResponse.json(
+        { error: "PayPal ist nicht konfiguriert." },
         { status: 403 }
       );
     }
@@ -61,20 +107,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If a PaymentIntent already exists (e.g., double-click), return the existing one
+    // Idempotency: if a payment intent already exists, try to retrieve it
     if (order.paymentIntentId && order.paymentStatus === "pending") {
-      try {
-        const { default: Stripe } = await import("stripe");
-        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-        const existing = await stripe.paymentIntents.retrieve(order.paymentIntentId);
-        if (existing.client_secret) {
-          return NextResponse.json({
-            clientSecret: existing.client_secret,
-            transactionId: existing.id,
-          });
+      if (order.paymentMethod === "stripe") {
+        const existing = await retrieveStripePaymentIntent(order.paymentIntentId);
+        if (existing) {
+          return NextResponse.json(existing);
         }
-      } catch {
-        // If retrieval fails, fall through to create a new one
+      } else if (order.paymentMethod === "paypal") {
+        // For PayPal, the order ID is still valid — return it
+        return NextResponse.json({
+          paypalOrderId: order.paymentIntentId,
+          transactionId: order.paymentIntentId,
+        });
       }
     }
 
@@ -92,12 +137,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await createPaymentIntent({
-      amount,
-      currency: "eur",
-      orderId,
-      customerName: order.customerName || "Gast",
-    });
+    const result = await createPaymentIntent(
+      {
+        amount,
+        currency: "eur",
+        orderId,
+        customerName: order.customerName || "Gast",
+      },
+      paymentMethod
+    );
 
     if (!result.success) {
       return NextResponse.json(
@@ -111,10 +159,17 @@ export async function POST(request: NextRequest) {
       where: { id: orderId },
       data: {
         paymentIntentId: result.transactionId,
-        paymentMethod: "stripe",
+        paymentMethod,
         paymentStatus: "pending",
       },
     });
+
+    if (paymentMethod === "paypal" && result.paypalOrderId) {
+      return NextResponse.json({
+        paypalOrderId: result.paypalOrderId,
+        transactionId: result.transactionId,
+      });
+    }
 
     return NextResponse.json({
       clientSecret: result.clientSecret,

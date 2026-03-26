@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         paymentIntentId: true,
+        paymentMethod: true,
       },
       take: 50, // Batch limit to avoid timeout on large backlogs
       orderBy: { createdAt: "asc" }, // Oldest first
@@ -55,7 +56,10 @@ export async function GET(request: NextRequest) {
       if (!order.paymentIntentId) continue;
 
       try {
-        const result = await verifyPayment(order.paymentIntentId);
+        const result = await verifyPayment(
+          order.paymentIntentId,
+          (order.paymentMethod as "stripe" | "paypal") ?? undefined
+        );
 
         if (result === "paid") {
           await db.order.updateMany({
