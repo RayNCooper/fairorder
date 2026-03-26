@@ -7,7 +7,9 @@
 - [ ] **Recurring subscription payments** — Employee meal plans, prepaid credits (currently one-time prepayment per order only)
 - [ ] **PDF menu extraction** — Accept PDF uploads for AI menu extraction (currently image-only; Gemini can handle images)
 - [ ] **Headless browser crawling** — Playwright-based crawler for JS-rendered menu pages (currently cheerio for static HTML only; suggest image upload for JS-heavy sites)
-- [ ] **Payment refund API** — Programmatic refunds via Stripe API (currently manual via Stripe dashboard)
+- [ ] **Payment refund API** — Programmatic refunds via Stripe and PayPal APIs (currently manual via respective dashboards)
+- [ ] **PayPal webhooks** — Add webhook listener for `PAYMENT.CAPTURE.COMPLETED` as a fallback to the cron sweep for PayPal payment confirmation. Becomes important if PENDING captures from compliance holds are frequent.
+- [ ] **Provider file splitting** — When a 4th payment provider is added, split `lib/payment.ts` into separate provider files (`lib/payment/stripe.ts`, `lib/payment/paypal.ts`, `lib/payment/cash.ts`) with a shared interface.
 - [ ] **Menu item nutritional AI analysis** — Use Gemini to estimate calories/macros from item names/descriptions
 - [ ] **Automated menu scraping on schedule** — Cron-based re-crawl of online menus to keep items up to date (currently one-shot import only)
 - [ ] **Baseline existing databases for Prisma migrations** — Databases created before the migration system (via `db push`) need `prisma migrate resolve --applied 0_init` before they can run new migrations. Add a setup script or document the upgrade path for existing installations.

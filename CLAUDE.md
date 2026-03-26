@@ -44,7 +44,7 @@ docker compose down -v         # Reset everything (deletes database + uploads)
 - **UI:** Tailwind CSS v4, Radix UI, shadcn/ui, 0px border-radius
 - **Auth:** Hand-rolled magic link auth with httpOnly session cookies
 - **Email:** Pluggable via `EMAIL_PROVIDER` env var — plunk (ESP), smtp (nodemailer), console (dev)
-- **Payment:** Pluggable via `PAYMENT_PROVIDER` env var — stripe (Stripe), cash (default)
+- **Payment:** Pluggable, auto-detected from API keys — stripe (Stripe, also supports PayPal via Stripe Dashboard), paypal (native @paypal/paypal-server-sdk), cash (default). Per-location `acceptedPayments` controls which methods are offered.
 - **Menu Extraction:** Pluggable via `MENU_EXTRACTION_PROVIDER` env var — gemini (Vercel AI SDK + @ai-sdk/google, structured output via generateObject), console (dev)
 - **Env:** dotenvx for maintainers; plain `.env` via `:local` scripts for contributors. See `.env.example`
 - **Fonts:** Plus Jakarta Sans (headings/body), JetBrains Mono (numbers/metadata)
@@ -65,7 +65,7 @@ app/
   api/menu-items/ # Menu item CRUD + bulk import
   api/orders/     # Order creation, status updates, available time slots
   api/analytics/  # Aggregated analytics + day-end reports
-  api/payment/    # Payment intent creation + status verification (polling)
+  api/payment/    # Payment intent creation, capture (PayPal), status verification
   api/cron/       # Background jobs (payment sweep)
   api/menu-extraction/ # AI menu extraction (image + URL)
   api/health/     # Health check endpoint
@@ -83,7 +83,7 @@ lib/
   auth.ts         # Session management (create, get, delete, cookies)
   db.ts           # Prisma client singleton
   email.ts        # Email sending (pluggable: plunk/smtp/console)
-  payment.ts      # Payment processing (pluggable: stripe/cash)
+  payment.ts      # Payment processing (pluggable: stripe/paypal/cash, auto-detected from API keys)
   menu-extraction.ts # AI menu extraction (pluggable: gemini/console)
   menu-crawler.ts # URL crawler for menu extraction
   storage.ts      # Image upload (local filesystem)
