@@ -12,6 +12,7 @@ import { createElement } from "react";
 import MagicLinkEmail from "@/emails/magic-link";
 import OrderReadyEmail from "@/emails/order-ready";
 import OrderConfirmationEmail from "@/emails/order-confirmation";
+import ReceiptEmail from "@/emails/receipt";
 
 const PLUNK_BASE_URL = "https://next-api.useplunk.com";
 
@@ -142,6 +143,38 @@ export async function buildMagicLinkEmail(
 
   return {
     subject: "Dein Login-Link für FairOrder",
+    body: html,
+  };
+}
+
+export interface ReceiptEmailData {
+  orderNumber: number;
+  customerName: string;
+  locationName: string;
+  companyName: string | null;
+  address: string | null;
+  vatId: string | null;
+  items: Array<{
+    quantity: number;
+    unitPrice: unknown; // Decimal from Prisma
+    vatRate: unknown;
+    netAmountCents: number;
+    vatAmountCents: number;
+    menuItem: { name: string; description: string | null };
+  }>;
+  createdAt: Date;
+  paymentMethod: string;
+}
+
+export async function buildReceiptEmail(
+  data: ReceiptEmailData
+): Promise<{ subject: string; body: string }> {
+  const html = await render(
+    createElement(ReceiptEmail, { ...data, baseUrl: getBaseUrl() })
+  );
+
+  return {
+    subject: `Beleg für Bestellung #${data.orderNumber}`,
     body: html,
   };
 }

@@ -10,7 +10,7 @@ export interface ExtractedMenuItem {
   description?: string;
   price?: number;
   category?: string;
-  taxRate?: number;
+  vatRate?: number;
   allergens?: string[];
   dietaryTags?: string[];
 }
@@ -29,7 +29,7 @@ const menuItemSchema = z.object({
     .string()
     .optional()
     .describe('Kategorie (z.B. "Vorspeisen", "Hauptgerichte", "Desserts", "Getränke")'),
-  taxRate: z
+  vatRate: z
     .number()
     .optional()
     .describe("MwSt-Satz: 7 für Speisen (Standard), 19 für Getränke. Nur Getränke haben 19%."),
@@ -49,7 +49,7 @@ const extractionSchema = z.object({
 
 const SYSTEM_PROMPT = `Du bist ein Speisekarten-Parser. Extrahiere alle Gerichte aus dem gegebenen Inhalt.
 Wenn du keine Gerichte erkennst, gib ein leeres Array zurück.
-Setze taxRate auf 7 für Speisen (Standard) und 19 für Getränke (Softdrinks, Kaffee, Bier, Wein, Saft, etc.).`;
+Setze vatRate auf 7 für Speisen (Standard) und 19 für Getränke (Softdrinks, Kaffee, Bier, Wein, Saft, etc.).`;
 
 // ── Gemini provider ──
 

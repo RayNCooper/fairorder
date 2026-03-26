@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/email", () => ({
   sendEmail: vi.fn().mockResolvedValue(true),
   buildOrderConfirmationEmail: vi.fn().mockResolvedValue({ subject: "test", body: "test" }),
+  buildReceiptEmail: vi.fn().mockResolvedValue({ subject: "test", body: "test" }),
 }))
 
 import { POST } from "@/app/api/orders/route"
@@ -29,12 +30,16 @@ function makeRequest(body: Record<string, unknown>) {
 
 const validLocation = {
   id: "loc-1",
+  name: "Test Kantine",
   isPublic: true,
   orderingEnabled: true,
   maxActiveOrders: 50,
   maxOrdersPerSlot: null,
   orderLeadTimeMinutes: 10,
   slotIntervalMinutes: 15,
+  companyName: null,
+  address: null,
+  vatId: null,
 }
 
 const validMenuItem = {
@@ -42,6 +47,7 @@ const validMenuItem = {
   locationId: "loc-1",
   isAvailable: true,
   price: 5.5,
+  vatRate: 7,
 }
 
 const validBody = {

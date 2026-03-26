@@ -26,7 +26,7 @@ Features marketed on fair-order.de that require significant implementation:
 - [ ] **Team/group ordering** — Shared cart for team pre-orders ("Teams bestellen gemeinsam vor dem Meeting"). Needs design thinking for cart-sharing UX.
 - [ ] **Tap-to-Pay** — Android/iOS Tap-to-Pay and POS terminal integration via Stripe Terminal API. Depends on Kassensystem.
 - [ ] **Guest loyalty / Stammkunden** — Optional guest registration, order history, configurable stamps/loyalty program. Builds on GuestAccount from Guthabenkonto.
-- [x] **Digital receipts** — ~~On-screen and email receipts for both walk-in and pre-order purchases.~~ Implemented as live order tracking page at `/order/[token]` with SWR polling, confirmation email, and order-ready email with page link.
+- [x] **Digital receipts** — ~~On-screen and email receipts for both walk-in and pre-order purchases.~~ Implemented as live order tracking page at `/order/[token]` with SWR polling, confirmation email, and order-ready email with page link. Enhanced with VAT breakdown receipt in compliance PR.
 
 ## Deferred from Order Tracking Page (2026-03-26)
 
@@ -48,3 +48,17 @@ Items deferred after autoplan CEO review rejected external POS integration in fa
 - [ ] **ESC/POS kitchen printer** — Network printer for kitchen tickets. High practical value but depends on Kassensystem being built first.
 - [ ] **Revenue reconciliation** — Daily/monthly reconciliation between FairOrder orders and external POS records. No external POS to reconcile against yet.
 - [ ] **RFID/NFC employee cards** — Integration with GV-specific card systems (Gantner, ventopay, GiroWeb). Requires hardware partnerships and openCashFile standard compatibility.
+
+## Deferred from German Compliance Phase 1 (2026-03-27)
+
+- [ ] **Essenszuschuss / employer subsidy** — Depends on Guthabenkonto (prepaid wallet). Add SubsidyConfig model, employeeId on Order, monthly CSV export for payroll. Sachbezugswert 2026: 4,40 EUR + 3,10 EUR employer = 7,50 EUR/meal max tax-free.
+- [ ] **Nutrition UI** — Schema fields exist (calories, protein, carbs, fat). Add display badges on public menu + editing in menu manager. Extend Gemini prompt for AI estimation.
+- [ ] **DGE category badges** — Add MenuItem.dgeCategory field. Display on public menu. Dashboard analytics for weekly DGE balance report (% vegetarian, % wholefood).
+- [ ] **TSE integration** — Technical security device (Technische Sicherheitseinrichtung) required when POS/walk-in features ship. Consider fiskaly cloud TSE API.
+- [ ] **GDPR data export API** — JSON export of all personal data by email (Art. 20 DSGVO). Currently low priority given minimal data collection (optional name + email).
+- [ ] **Cookie consent banner** — Not needed while no tracking cookies are used. Add when analytics or third-party scripts are introduced.
+- [ ] **GDPR anonymize safeguards** — Add audit log (who anonymized what/when), confirmation token, and rate limiting to `/api/gdpr/anonymize`. Currently a single POST irreversibly destroys personal data with no safeguards.
+- [ ] **Bookkeeping export streaming** — `/api/orders/export` loads all orders into memory. For locations with 100k+ orders, switch to cursor-based pagination or streaming CSV response.
+- [ ] **Category-level VAT propagation** — `Category.vatRate` exists in schema but is not used in the order flow. Add logic to inherit category VAT rate when creating new menu items, so operators only set it once per category (e.g., "Getränke" = 19%).
+- [ ] **Operator-customizable privacy policy** — Datenschutz page uses hardcoded legal text. Different operators may need different DPO contacts, supervisory authorities, or data processing descriptions. Add a free-text override field.
+- [ ] **Legal page caching** — Impressum and Datenschutz pages query the DB twice per load (once in `generateMetadata`, once in render). Wrap with Next.js `cache()` or deduplicate.

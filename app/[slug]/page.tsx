@@ -77,6 +77,7 @@ export default async function PublicMenuPage({ params }: MenuPageProps) {
     <PublicMenu
       locationId={location.id}
       locationName={location.name}
+      locationSlug={location.slug}
       orderingEnabled={location.orderingEnabled}
       paymentEnabled={location.paymentEnabled}
       acceptedPayments={location.acceptedPayments}

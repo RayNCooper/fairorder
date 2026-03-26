@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         select: {
           createdAt: true,
           items: {
-            select: { unitPrice: true, quantity: true, taxRate: true },
+            select: { unitPrice: true, quantity: true, vatRate: true },
           },
         },
         orderBy: { createdAt: "asc" },
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
   for (const order of ordersInRange) {
     for (const item of order.items) {
       const lineTotal = Number(item.unitPrice) * item.quantity;
-      const rate = Number(item.taxRate);
+      const rate = Number(item.vatRate);
       if (rate === 19) {
         taxBreakdown.rate19 += lineTotal;
       } else {

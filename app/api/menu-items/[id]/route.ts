@@ -61,6 +61,17 @@ export async function PUT(
       data.price = Number(body.price);
     }
 
+    if (body.vatRate !== undefined) {
+      const rate = Number(body.vatRate);
+      if (![0, 7, 19].includes(rate)) {
+        return NextResponse.json(
+          { error: "MwSt.-Satz muss 0, 7 oder 19 sein." },
+          { status: 400 }
+        );
+      }
+      data.vatRate = rate;
+    }
+
     if (body.categoryId !== undefined) {
       // Verify new category belongs to the same location
       if (body.categoryId) {
@@ -102,17 +113,6 @@ export async function PUT(
 
     if (body.sortOrder !== undefined) {
       data.sortOrder = Number(body.sortOrder);
-    }
-
-    if (body.taxRate !== undefined) {
-      const rate = Number(body.taxRate);
-      if (rate !== 7 && rate !== 19) {
-        return NextResponse.json(
-          { error: "Steuersatz muss 7 oder 19 sein." },
-          { status: 400 }
-        );
-      }
-      data.taxRate = rate;
     }
 
     if (body.allergens !== undefined) {

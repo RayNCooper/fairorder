@@ -64,6 +64,13 @@ model Location {
   paymentEnabled    Boolean  @default(false)
   acceptedPayments  String[] @default(["cash"])
 
+  // Legal info (Impressum + receipts)
+  companyName       String?
+  address           String?
+  phone             String?
+  vatId             String?
+  responsiblePerson String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -82,6 +89,7 @@ model Category {
   name      String
   sortOrder Int     @default(0)
   isActive  Boolean @default(true)
+  vatRate   Decimal @default(7.00) @db.Decimal(4, 2)
 
   menuItems MenuItem[]
 
@@ -99,10 +107,10 @@ model MenuItem {
   name        String
   description String?
   price       Decimal @db.Decimal(10, 2)
+  vatRate     Decimal @default(7) @map("taxRate") @db.Decimal(5, 2)
   imageUrl    String?
 
   isAvailable Boolean @default(true)
-  taxRate     Decimal @default(7) @db.Decimal(5, 2)
   prepTimeMinutes Int?
   sortOrder Int @default(0)
 
@@ -149,6 +157,9 @@ model Order {
   paymentIntentId String?
   paidAt          DateTime?
 
+  cancelledAt        DateTime?
+  cancellationReason String?
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   prepStartedAt DateTime?
@@ -178,10 +189,12 @@ model OrderItem {
   menuItemId String
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
 
-  quantity Int @default(1)
-  unitPrice Decimal @db.Decimal(10, 2)
-  taxRate   Decimal @default(7) @db.Decimal(5, 2)
-  notes String?
+  quantity       Int     @default(1)
+  unitPrice      Decimal @db.Decimal(10, 2)
+  vatRate        Decimal @default(7) @map("taxRate") @db.Decimal(5, 2)
+  netAmountCents Int     @default(0)
+  vatAmountCents Int     @default(0)
+  notes          String?
 
   @@index([orderId])
 }

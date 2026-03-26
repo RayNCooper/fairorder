@@ -41,6 +41,11 @@ interface LocationData {
   maxOrdersPerSlot: number | null;
   paymentEnabled: boolean;
   acceptedPayments: string[];
+  companyName: string | null;
+  address: string | null;
+  phone: string | null;
+  vatId: string | null;
+  responsiblePerson: string | null;
 }
 
 interface UserData {
@@ -887,6 +892,126 @@ export function FeaturesSection({ location }: { location: LocationData }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export function LegalInfoSection({ location }: { location: LocationData }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [companyName, setCompanyName] = useState(location.companyName ?? "");
+  const [address, setAddress] = useState(location.address ?? "");
+  const [phone, setPhone] = useState(location.phone ?? "");
+  const [vatId, setVatId] = useState(location.vatId ?? "");
+  const [responsiblePerson, setResponsiblePerson] = useState(location.responsiblePerson ?? "");
+  const [success, setSuccess] = useState(false);
+
+  async function saveLegalInfo() {
+    startTransition(async () => {
+      setSuccess(false);
+      const res = await fetch(`/api/locations/${location.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: companyName.trim() || null,
+          address: address.trim() || null,
+          phone: phone.trim() || null,
+          vatId: vatId.trim() || null,
+          responsiblePerson: responsiblePerson.trim() || null,
+        }),
+      });
+      if (res.ok) {
+        setSuccess(true);
+        router.refresh();
+        setTimeout(() => setSuccess(false), 3000);
+      }
+    });
+  }
+
+  const hasData = companyName || address;
+
+  return (
+    <SectionCard
+      title="Rechtliche Angaben"
+      description="Impressum und Beleginformationen (Pflicht gem. DDG &sect; 5)."
+    >
+      <div className="space-y-4">
+        {!hasData && (
+          <div className="border-l-3 border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Bitte f&uuml;lle die rechtlichen Angaben aus, um dein Impressum und Belege zu vervollst&auml;ndigen.
+          </div>
+        )}
+
+        {success && (
+          <div className="border-l-3 border-green-500 bg-green-50 px-3 py-2 text-sm text-green-700">
+            Rechtliche Angaben gespeichert.
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="companyName">Firmenname</Label>
+          <Input
+            id="companyName"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="Muster GmbH"
+            className="rounded-none"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="address">Anschrift</Label>
+          <Input
+            id="address"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Musterstra&szlig;e 1, 12345 Berlin"
+            className="rounded-none"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="phone">Telefon</Label>
+          <Input
+            id="phone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+49 123 456789"
+            className="rounded-none"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="vatId">USt-IdNr</Label>
+          <Input
+            id="vatId"
+            value={vatId}
+            onChange={(e) => setVatId(e.target.value)}
+            placeholder="DE123456789"
+            className="rounded-none font-mono"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="responsiblePerson">Verantwortliche Person</Label>
+          <Input
+            id="responsiblePerson"
+            value={responsiblePerson}
+            onChange={(e) => setResponsiblePerson(e.target.value)}
+            placeholder="Max Mustermann"
+            className="rounded-none"
+          />
+        </div>
+
+        <Button
+          className="rounded-none"
+          onClick={saveLegalInfo}
+          disabled={isPending}
+        >
+          {isPending && <IconLoader2 className="size-4 animate-spin" />}
+          Speichern
+        </Button>
+      </div>
+    </SectionCard>
   );
 }
 

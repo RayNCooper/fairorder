@@ -188,6 +188,20 @@ export async function PUT(
       updateData.acceptedPayments = body.acceptedPayments;
     }
 
+    // Legal info fields (all optional strings, max 500 chars)
+    const legalFields = ["companyName", "address", "phone", "vatId", "responsiblePerson"] as const;
+    for (const field of legalFields) {
+      if (body[field] !== undefined) {
+        if (typeof body[field] === "string" && body[field].length > 500) {
+          return NextResponse.json(
+            { error: `${field} darf maximal 500 Zeichen lang sein.` },
+            { status: 400 }
+          );
+        }
+        updateData[field] = typeof body[field] === "string" ? body[field] : null;
+      }
+    }
+
     const updated = await db.location.update({
       where: { id },
       data: updateData,

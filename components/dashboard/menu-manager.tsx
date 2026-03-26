@@ -51,10 +51,10 @@ interface MenuItem {
   name: string;
   description: string | null;
   price: string | number;
+  vatRate: string | number;
   imageUrl: string | null;
   categoryId: string | null;
   isAvailable: boolean;
-  taxRate: number;
   sortOrder: number;
   allergens: string[];
   dietaryTags: string[];
@@ -197,10 +197,10 @@ export function MenuManager({ initialCategories, uncategorizedItems: initialUnca
     name: "",
     description: "",
     price: "",
+    vatRate: "7",
     imageUrl: "",
     categoryId: "",
     isAvailable: true,
-    taxRate: 7,
     allergens: [] as string[],
   });
   const [itemSaving, setItemSaving] = useState(false);
@@ -309,10 +309,10 @@ export function MenuManager({ initialCategories, uncategorizedItems: initialUnca
       name: "",
       description: "",
       price: "",
+      vatRate: "7",
       imageUrl: "",
       categoryId: categoryId || "",
       isAvailable: true,
-      taxRate: 7,
       allergens: [],
     });
     setError(null);
@@ -325,10 +325,10 @@ export function MenuManager({ initialCategories, uncategorizedItems: initialUnca
       name: item.name,
       description: item.description || "",
       price: formatPrice(item.price),
+      vatRate: String(item.vatRate ?? "7"),
       imageUrl: item.imageUrl || "",
       categoryId: item.categoryId || "",
       isAvailable: item.isAvailable,
-      taxRate: Number(item.taxRate) || 7,
       allergens: item.allergens || [],
     });
     setError(null);
@@ -356,10 +356,10 @@ export function MenuManager({ initialCategories, uncategorizedItems: initialUnca
         name: itemForm.name.trim(),
         description: itemForm.description.trim() || null,
         price: priceNum,
+        vatRate: parseFloat(itemForm.vatRate) || 7,
         imageUrl: itemForm.imageUrl.trim() || null,
         categoryId: itemForm.categoryId || null,
         isAvailable: itemForm.isAvailable,
-        taxRate: itemForm.taxRate,
         allergens: itemForm.allergens,
       };
 
@@ -1075,7 +1075,7 @@ export function MenuManager({ initialCategories, uncategorizedItems: initialUnca
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="item-price">Preis (EUR) *</Label>
                 <Input
@@ -1088,6 +1088,25 @@ export function MenuManager({ initialCategories, uncategorizedItems: initialUnca
                   placeholder="0,00"
                   inputMode="decimal"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="item-vat">MwSt.</Label>
+                <Select
+                  value={itemForm.vatRate}
+                  onValueChange={(value) =>
+                    setItemForm((f) => ({ ...f, vatRate: value }))
+                  }
+                >
+                  <SelectTrigger className="rounded-none w-full font-mono" id="item-vat">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    <SelectItem value="7">7%</SelectItem>
+                    <SelectItem value="19">19%</SelectItem>
+                    <SelectItem value="0">0%</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -1109,36 +1128,6 @@ export function MenuManager({ initialCategories, uncategorizedItems: initialUnca
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>MwSt-Satz</Label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setItemForm((f) => ({ ...f, taxRate: 7 }))}
-                  className={cn(
-                    "px-3 py-1.5 text-xs font-mono border transition-colors",
-                    itemForm.taxRate === 7
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/50"
-                  )}
-                >
-                  7 % Speisen
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setItemForm((f) => ({ ...f, taxRate: 19 }))}
-                  className={cn(
-                    "px-3 py-1.5 text-xs font-mono border transition-colors",
-                    itemForm.taxRate === 19
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/50"
-                  )}
-                >
-                  19 % Getränke
-                </button>
               </div>
             </div>
 

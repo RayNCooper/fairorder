@@ -5,6 +5,21 @@ All notable changes to the FairOrder product app are documented in this file.
 ## [0.5.4.0] - 2026-03-27
 
 ### Added
+- VAT handling with integer-cent math (lib/vat.ts) — net + vat === gross invariant, validated rates (0%, 7%, 19%)
+- Digital receipt on order confirmation screen with per-rate VAT breakdown (Bonpflicht compliance)
+- Receipt email template with VAT breakdown, legal footer, payment method
+- Impressum page (auto-generated from operator legal info, DDG § 5)
+- Datenschutzerklarung page (DSGVO-compliant privacy policy)
+- Legal info settings section in operator dashboard (company name, address, phone, USt-IdNr, responsible person)
+- Bookkeeping export API (CSV with VAT columns, auth-protected, date-filterable)
+- GDPR anonymization API (nulls personal data while retaining financial records for GoBD)
+- Allergen exclusion filter on public menu (LMIV compliance — hides items containing selected allergens)
+- Category-level VAT rate field (schema-ready for per-category defaults)
+- VAT rate selector (0%/7%/19%) in menu item editor
+- "Alle Preise inkl. MwSt." footer with Impressum/Datenschutz links on public menu
+- 11 VAT unit tests including rounding invariant (all amounts 1-10000 at 7% and 19%)
+- 6 export integration tests (auth, validation, CSV format, empty state)
+- eslint-plugin-jsx-a11y for continuous accessibility enforcement
 - PayPal payment support — operators can now accept PayPal alongside card payments and cash
 - Two ways to offer PayPal: natively via PayPal SDK, or through Stripe's automatic payment methods (zero-config)
 - Dedicated `/api/payment/capture` endpoint for PayPal's server-side capture flow
@@ -16,6 +31,12 @@ All notable changes to the FairOrder product app are documented in this file.
 - Capture endpoint tests (validation, auth gate, idempotency, PENDING status)
 
 ### Changed
+- Renamed taxRate to vatRate throughout codebase (correct German terminology, mapped to existing DB column)
+- OrderItem now stores pre-computed netAmountCents and vatAmountCents (GoBD immutable records)
+- Order.cancelledAt and cancellationReason fields for soft cancellation (no hard deletes)
+- Allergen filter logic inverted: dietary tags use AND-include, allergens use AND-exclude
+- CSV export sanitizes cell values to prevent spreadsheet formula injection
+- GDPR anonymize uses case-insensitive email matching
 - Payment providers now auto-detected from API keys — `PAYMENT_PROVIDER` env var deprecated (still honored as fallback)
 - `createPaymentIntent()` and `verifyPayment()` accept optional `method` parameter for caller-driven routing
 - `PaymentMethodSelector` refactored with `PaymentOptionButton` component, supports 3 methods (cash/stripe/paypal)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/db";
+import { calculateLineItemVat } from "@/lib/vat";
 import { sendEmail, buildOrderConfirmationEmail } from "@/lib/email";
 
 function generateOrderToken(): string {
@@ -234,12 +235,20 @@ export async function POST(request: NextRequest) {
           customerEmail: customerEmail ? String(customerEmail).trim() || null : null,
           requestedPickupTime,
           items: {
-            create: [...deduped.entries()].map(([menuItemId, quantity]) => ({
-              menuItemId,
-              quantity,
-              unitPrice: menuItemMap.get(menuItemId)!.price,
-              taxRate: menuItemMap.get(menuItemId)!.taxRate,
-            })),
+            create: [...deduped.entries()].map(([menuItemId, quantity]) => {
+              const mi = menuItemMap.get(menuItemId)!;
+              const unitPriceCents = Math.round(Number(mi.price) * 100);
+              const vatRate = Number(mi.vatRate);
+              const { netCents, vatCents } = calculateLineItemVat(unitPriceCents, quantity, vatRate);
+              return {
+                menuItemId,
+                quantity,
+                unitPrice: mi.price,
+                vatRate: mi.vatRate,
+                netAmountCents: netCents,
+                vatAmountCents: vatCents,
+              };
+            }),
           },
         },
         include: {

@@ -37,6 +37,7 @@ interface OperatingHoursDay {
 interface PublicMenuProps {
   locationId: string;
   locationName: string;
+  locationSlug?: string;
   orderingEnabled: boolean;
   paymentEnabled: boolean;
   acceptedPayments: string[];
@@ -168,6 +169,7 @@ type OrderState = "idle" | "cart" | "submitting" | "paying" | "paying-paypal" | 
 export function PublicMenu({
   locationId,
   locationName,
+  locationSlug,
   orderingEnabled,
   paymentEnabled,
   acceptedPayments,
@@ -186,6 +188,8 @@ export function PublicMenu({
   const [orderId, setOrderId] = useState<string | null>(null);
   const [orderToken, setOrderToken] = useState<string | null>(null);
   const orderTokenRef = useRef<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [orderData, setOrderData] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const router = useRouter();
@@ -274,15 +278,35 @@ export function PublicMenu({
     return items;
   }, [categories, uncategorizedItems]);
 
-  // ── Collect all unique filter tags ──
-  const allFilterTags = useMemo(() => {
-    const tags = new Set<string>();
+  // ── Collect unique dietary tags (include-filter) and allergens (exclude-filter) ──
+  const { allDietaryTags, allAllergens } = useMemo(() => {
+    const dietarySet = new Set<string>();
+    const allergenSet = new Set<string>();
     for (const item of allItems) {
-      for (const t of item.dietaryTags) tags.add(t);
-      for (const a of item.allergens) tags.add(a);
+      for (const t of item.dietaryTags) dietarySet.add(t);
+      for (const a of item.allergens) allergenSet.add(a);
     }
-    return Array.from(tags).sort();
+    return {
+      allDietaryTags: Array.from(dietarySet).sort(),
+      allAllergens: Array.from(allergenSet).sort(),
+    };
   }, [allItems]);
+
+  const allFilterTags = useMemo(
+    () => [...allDietaryTags, ...allAllergens],
+    [allDietaryTags, allAllergens]
+  );
+
+  // Track which selected filters are allergens (for exclude logic)
+  const selectedAllergenFilters = useMemo(() => {
+    const allergenSet = new Set(allAllergens);
+    return new Set([...selectedFilters].filter((f) => allergenSet.has(f)));
+  }, [selectedFilters, allAllergens]);
+
+  const selectedDietaryFilters = useMemo(() => {
+    const allergenSet = new Set(allAllergens);
+    return new Set([...selectedFilters].filter((f) => !allergenSet.has(f)));
+  }, [selectedFilters, allAllergens]);
 
   // ── Filter + search logic ──
   const matchesItem = useCallback(
@@ -297,16 +321,22 @@ export function PublicMenu({
           item.dietaryTags.some((t) => t.toLowerCase().includes(q));
         if (!match) return false;
       }
-      // Tag filters (AND — item must match ALL selected filters)
-      if (selectedFilters.size > 0) {
-        const itemTags = new Set([...item.dietaryTags, ...item.allergens]);
-        for (const filter of selectedFilters) {
-          if (!itemTags.has(filter)) return false;
+      // Dietary tag filters (AND-include — item must HAVE all selected dietary tags)
+      if (selectedDietaryFilters.size > 0) {
+        const itemDietaryTags = new Set(item.dietaryTags);
+        for (const filter of selectedDietaryFilters) {
+          if (!itemDietaryTags.has(filter)) return false;
+        }
+      }
+      // Allergen filters (AND-exclude — item must NOT HAVE any selected allergens)
+      if (selectedAllergenFilters.size > 0) {
+        for (const allergen of selectedAllergenFilters) {
+          if (item.allergens.includes(allergen)) return false;
         }
       }
       return true;
     },
-    [searchQuery, selectedFilters]
+    [searchQuery, selectedDietaryFilters, selectedAllergenFilters]
   );
 
   const filteredCategories = useMemo(() => {
@@ -437,6 +467,7 @@ export function PublicMenu({
       setOrderId(order.id);
       setOrderToken(order.token);
       orderTokenRef.current = order.token;
+      setOrderData(order);
 
       // If Stripe payment selected, create payment intent
       if (paymentMethod === "stripe" && stripeAvailable) {
@@ -616,8 +647,23 @@ export function PublicMenu({
     );
   }
 
-  // ── Redirect to order tracking page ──
-  if (orderState === "success") {
+  // ── Success screen (receipt / Bonpflicht) ──
+  if (orderState === "success" && orderNumber) {
+    // Compute VAT breakdown from order items
+    const vatGroups = new Map<number, { netCents: number; vatCents: number }>();
+    let totalGrossCents = 0;
+    if (orderData?.items) {
+      for (const item of orderData.items) {
+        const rate = Number(item.vatRate ?? 7);
+        const grossCents = Math.round(Number(item.unitPrice) * 100) * item.quantity;
+        const existing = vatGroups.get(rate) ?? { netCents: 0, vatCents: 0 };
+        existing.netCents += item.netAmountCents ?? 0;
+        existing.vatCents += item.vatAmountCents ?? 0;
+        vatGroups.set(rate, existing);
+        totalGrossCents += grossCents;
+      }
+    }
+
     return (
       <div className="min-h-dvh bg-[#FAFAF8]">
         <header className="border-b border-stone-200 bg-white px-4 py-6 text-center">
@@ -625,17 +671,100 @@ export function PublicMenu({
             {locationName}
           </h1>
         </header>
-        <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <main className="mx-auto max-w-md px-4 py-8">
           <div className="space-y-4">
-            <div className="inline-flex h-16 w-16 items-center justify-center bg-green-100">
-              <span className="text-2xl text-green-600">&#10003;</span>
+            {/* Order confirmation header */}
+            <div className="text-center space-y-2">
+              <div className="inline-flex h-12 w-12 items-center justify-center bg-green-100">
+                <span className="text-xl text-green-600">&#10003;</span>
+              </div>
+              <p className="font-mono text-2xl font-bold tabular-nums text-green-600">
+                Bestellung #{orderNumber}
+              </p>
+              <p className="text-sm text-stone-600">
+                Dein Essen wird zubereitet!
+              </p>
             </div>
-            <h2 className="text-xl font-extrabold text-stone-900">
-              Bestellung aufgegeben!
-            </h2>
-            <p className="text-sm text-stone-500">
-              Weiterleitung zu deiner Bestellung...
-            </p>
+
+            {/* Item list */}
+            {orderData?.items && (
+              <div className="border-t border-stone-200 pt-4 space-y-2">
+                {orderData.items.map((item: { quantity: number; unitPrice: number; menuItem?: { name: string } }, i: number) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <span className="text-stone-700">
+                      <span className="font-mono text-stone-500">{item.quantity}&times;</span>{" "}
+                      {item.menuItem?.name ?? "Artikel"}
+                    </span>
+                    <span className="font-mono tabular-nums text-stone-900">
+                      {(Number(item.unitPrice) * item.quantity).toFixed(2).replace(".", ",")}&nbsp;&euro;
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* VAT breakdown */}
+            {vatGroups.size > 0 && (
+              <div className="border-t border-stone-200 pt-3 space-y-1">
+                {[...vatGroups.entries()].map(([rate, group]) => (
+                  <div key={rate}>
+                    <div className="flex justify-between text-xs text-stone-600">
+                      <span>Netto ({rate}%)</span>
+                      <span className="font-mono tabular-nums">
+                        {(group.netCents / 100).toFixed(2).replace(".", ",")}&nbsp;&euro;
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs text-stone-600">
+                      <span>MwSt. {rate}%</span>
+                      <span className="font-mono tabular-nums">
+                        {(group.vatCents / 100).toFixed(2).replace(".", ",")}&nbsp;&euro;
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Total */}
+            {totalGrossCents > 0 && (
+              <div className="border-t border-stone-200 pt-3 flex justify-between">
+                <span className="font-extrabold text-stone-900">Gesamt</span>
+                <span className="font-mono text-lg font-extrabold tabular-nums text-stone-900">
+                  {(totalGrossCents / 100).toFixed(2).replace(".", ",")}&nbsp;&euro;
+                </span>
+              </div>
+            )}
+
+            {/* Payment + timestamp */}
+            <div className="text-xs text-stone-500 text-center">
+              <p>
+                {orderData?.paymentMethod === "stripe" ? "Kartenzahlung" : "Barzahlung"}{" "}
+                &middot; {new Date(orderData?.createdAt ?? Date.now()).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+
+            {/* Link to order tracking page */}
+            {orderToken && (
+              <button
+                className="mt-4 w-full bg-green-600 px-6 py-3 text-sm font-bold uppercase tracking-wider text-white hover:bg-green-500"
+                onClick={() => router.push(`/order/${orderToken}`)}
+              >
+                Bestellung verfolgen
+              </button>
+            )}
+
+            <button
+              className="w-full bg-stone-900 px-6 py-3 text-sm font-bold uppercase tracking-wider text-white hover:bg-stone-800"
+              onClick={() => {
+                setOrderState("idle");
+                setOrderNumber(null);
+                setOrderData(null);
+                setOrderToken(null);
+                orderTokenRef.current = null;
+              }}
+            >
+              Neue Bestellung
+            </button>
           </div>
         </main>
       </div>
@@ -880,6 +1009,31 @@ export function PublicMenu({
             )}
           </div>
         )}
+
+        {/* Compliance footer */}
+        <footer className="mt-12 border-t border-stone-200 px-4 py-6">
+          <div className="mx-auto max-w-md text-center">
+            <p className="text-xs text-stone-600">
+              Alle Preise inkl. MwSt.
+            </p>
+            {locationSlug && (
+              <div className="mt-2 flex items-center justify-center gap-4">
+                <a
+                  href={`/${locationSlug}/impressum`}
+                  className="text-xs text-stone-600 hover:text-stone-800 underline"
+                >
+                  Impressum
+                </a>
+                <a
+                  href={`/${locationSlug}/datenschutz`}
+                  className="text-xs text-stone-600 hover:text-stone-800 underline"
+                >
+                  Datenschutz
+                </a>
+              </div>
+            )}
+          </div>
+        </footer>
       </main>
 
       {/* Cart bar — fixed at bottom */}
