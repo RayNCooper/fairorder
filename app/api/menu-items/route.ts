@@ -58,6 +58,15 @@ export async function POST(request: NextRequest) {
       orderBy: { sortOrder: "desc" },
     });
 
+    // Validate taxRate if provided (must be 7 or 19)
+    const taxRate = body.taxRate !== undefined ? Number(body.taxRate) : 7;
+    if (taxRate !== 7 && taxRate !== 19) {
+      return NextResponse.json(
+        { error: "Steuersatz muss 7 oder 19 sein." },
+        { status: 400 }
+      );
+    }
+
     const menuItem = await db.menuItem.create({
       data: {
         name: body.name.trim(),
@@ -67,6 +76,7 @@ export async function POST(request: NextRequest) {
         categoryId: body.categoryId || null,
         locationId: location.id,
         isAvailable: body.isAvailable ?? true,
+        taxRate,
         sortOrder: (lastItem?.sortOrder ?? -1) + 1,
         allergens: body.allergens || [],
         dietaryTags: body.dietaryTags || [],

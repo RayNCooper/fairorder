@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         select: {
           createdAt: true,
           items: {
-            select: { unitPrice: true, quantity: true },
+            select: { unitPrice: true, quantity: true, taxRate: true },
           },
         },
         orderBy: { createdAt: "asc" },
@@ -152,10 +152,30 @@ export async function GET(request: NextRequest) {
   const totalRevenue = Number(revenueResult[0]?.total ?? 0);
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
+  // Tax breakdown: revenue by tax rate (7% food, 19% beverages)
+  const taxBreakdown = { rate7: 0, rate19: 0 };
+  for (const order of ordersInRange) {
+    for (const item of order.items) {
+      const lineTotal = Number(item.unitPrice) * item.quantity;
+      const rate = Number(item.taxRate);
+      if (rate === 19) {
+        taxBreakdown.rate19 += lineTotal;
+      } else {
+        taxBreakdown.rate7 += lineTotal;
+      }
+    }
+  }
+
   return NextResponse.json({
     dailyOrders,
     topItems,
     hourlyDistribution,
+    taxBreakdown: {
+      rate7: Math.round(taxBreakdown.rate7 * 100) / 100,
+      rate19: Math.round(taxBreakdown.rate19 * 100) / 100,
+      tax7: Math.round((taxBreakdown.rate7 * 7) / 107 * 100) / 100,
+      tax19: Math.round((taxBreakdown.rate19 * 19) / 119 * 100) / 100,
+    },
     summary: {
       totalOrders,
       totalRevenue: Math.round(totalRevenue * 100) / 100,

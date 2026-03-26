@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
           categoryId?: string;
           allergens?: string[];
           dietaryTags?: string[];
+          taxRate?: number;
         }) => {
           const priceNum =
             typeof item.price === "number"
@@ -112,6 +113,9 @@ export async function POST(request: NextRequest) {
               : undefined) ??
             null;
 
+          // Default to 7% (food); use 19% only if explicitly set
+          const taxRate = item.taxRate === 19 ? 19 : 7;
+
           return db.menuItem.create({
             data: {
               name: item.name.trim(),
@@ -120,6 +124,7 @@ export async function POST(request: NextRequest) {
               locationId: location.id,
               categoryId,
               isAvailable: true,
+              taxRate,
               sortOrder: sortOrder++,
               allergens: item.allergens ?? [],
               dietaryTags: item.dietaryTags ?? [],

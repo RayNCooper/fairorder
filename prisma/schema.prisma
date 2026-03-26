@@ -102,6 +102,7 @@ model MenuItem {
   imageUrl    String?
 
   isAvailable Boolean @default(true)
+  taxRate     Decimal @default(7) @db.Decimal(5, 2)
   prepTimeMinutes Int?
   sortOrder Int @default(0)
 
@@ -178,6 +179,7 @@ model OrderItem {
 
   quantity Int @default(1)
   unitPrice Decimal @db.Decimal(10, 2)
+  taxRate   Decimal @default(7) @db.Decimal(5, 2)
   notes String?
 
   @@index([orderId])

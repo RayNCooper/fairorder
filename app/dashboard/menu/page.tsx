@@ -38,18 +38,20 @@ export default async function MenuPage() {
     }),
   ]);
 
-  // Serialize Decimal fields to strings for client component
+  // Serialize Decimal fields to strings/numbers for client component
   const serializedCategories = categories.map((cat: typeof categories[number]) => ({
     ...cat,
     menuItems: cat.menuItems.map((item: typeof cat.menuItems[number]) => ({
       ...item,
       price: item.price.toString(),
+      taxRate: Number(item.taxRate),
     })),
   }));
 
   const serializedUncategorized = uncategorizedItems.map((item: typeof uncategorizedItems[number]) => ({
     ...item,
     price: item.price.toString(),
+    taxRate: Number(item.taxRate),
   }));
 
   return (

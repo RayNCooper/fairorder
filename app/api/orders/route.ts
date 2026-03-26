@@ -229,6 +229,7 @@ export async function POST(request: NextRequest) {
               menuItemId,
               quantity,
               unitPrice: menuItemMap.get(menuItemId)!.price,
+              taxRate: menuItemMap.get(menuItemId)!.taxRate,
             })),
           },
         },
