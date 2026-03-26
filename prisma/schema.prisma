@@ -132,6 +132,7 @@ model Order {
   locationId String
   location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
+  token       String   @unique
   orderNumber Int
   customerName String
   customerNote String?

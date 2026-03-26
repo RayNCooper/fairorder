@@ -112,15 +112,21 @@ export async function PUT(
 
     // Send order-ready notification email (fire-and-forget)
     if (newStatus === "READY" && refreshed?.customerEmail && !order.readyAt) {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://app.fair-order.de";
+      const orderPageUrl = `${baseUrl}/order/${refreshed.token}`;
+
       buildOrderReadyEmail(
         refreshed.orderNumber,
         refreshed.customerName,
-        refreshed.location.name
+        refreshed.location.name,
+        orderPageUrl
       )
         .then(({ subject, body: emailBody }) =>
           sendEmail({ to: refreshed.customerEmail!, subject, body: emailBody })
         )
-        .catch((err) => console.error("Failed to send order-ready email:", err));
+        .catch((err) =>
+          console.error(`Failed to send order-ready email for order ${refreshed.id}:`, err)
+        );
     }
 
     return NextResponse.json({ order: refreshed });

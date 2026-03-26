@@ -24,4 +24,14 @@ Features marketed on fair-order.de that require significant implementation:
 - [ ] **Team/group ordering** — Shared cart for team pre-orders ("Teams bestellen gemeinsam vor dem Meeting"). Needs design thinking for cart-sharing UX.
 - [ ] **Tap-to-Pay** — Android/iOS Tap-to-Pay and POS terminal integration via Stripe Terminal API. Depends on Kassensystem.
 - [ ] **Guest loyalty / Stammkunden** — Optional guest registration, order history, configurable stamps/loyalty program. Builds on GuestAccount from Guthabenkonto.
-- [ ] **Digital receipts** — On-screen and email receipts for both walk-in and pre-order purchases. Natural addition to POS phase.
+- [x] **Digital receipts** — ~~On-screen and email receipts for both walk-in and pre-order purchases.~~ Implemented as live order tracking page at `/order/[token]` with SWR polling, confirmation email, and order-ready email with page link.
+
+## Deferred from Order Tracking Page (2026-03-26)
+
+Enhancements deferred from the live order tracking page:
+
+- [ ] **Nutritional summary on order page** — Show calories/macros breakdown on the tracking page (data already exists in MenuItem model)
+- [ ] **Re-order from tracking page** — Pre-fill cart with items from a previous order via "Nochmal bestellen" deep link
+- [ ] **PDF/printable receipts** — Downloadable receipt for tax/expense purposes
+- [ ] **Browser push notifications** — `Notification.requestPermission()` on order page, fire on status READY
+- [ ] **Lightweight status polling endpoint** — Return only `{ status, readyAt }` instead of full order for SWR polling efficiency

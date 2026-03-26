@@ -2,6 +2,28 @@
 
 All notable changes to the FairOrder product app are documented in this file.
 
+## [0.5.2.0] - 2026-03-27
+
+### Added
+- Live order tracking page at `/order/[token]` — serves as both receipt and real-time status tracker
+- Unique 12-char crypto token per order for shareable, bookmarkable order URLs
+- Order confirmation email with itemized receipt and tracking link (sent on order creation)
+- Order-ready email now includes a link to the order tracking page
+- Skeleton loading state for order page (prevents blank screen after redirect)
+- Friendly 404 page for invalid order tokens
+- "Nochmal bestellen" (re-order) button on completed orders
+- Contact message + menu link on cancelled orders
+- SWR-powered live status polling (10s interval, stops on terminal states)
+- PII filtering on public order API — customerEmail, customerNote, paymentIntentId excluded
+- `robots: noindex` on order pages to prevent search indexing
+- 9 new tests covering order token lookup, PII filtering, and email templates (166 → 175 total)
+
+### Changed
+- Guest checkout now redirects to `/order/[token]` instead of showing inline success screen
+- `router.replace` used for redirect (back button doesn't return to stale checkout)
+- Order creation API returns filtered response (excludes PII fields)
+- Stripe payment success uses `useRef` backup for token to prevent race condition
+
 ## [0.5.1.0] - 2026-03-26
 
 ### Added

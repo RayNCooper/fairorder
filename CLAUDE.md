@@ -57,13 +57,14 @@ app/
   (auth)/         # Login, register, verify-email (centered, no navbar)
   (onboarding)/   # 3-step wizard (setup, menu-import, complete)
   [slug]/         # Public menu page (guest-facing, no auth)
+  order/[token]/  # Live order tracking page (receipt + status, no auth, token-secured)
   display/[token]/ # Kitchen display (token-authenticated)
   dashboard/      # Operator admin (sidebar nav on desktop, bottom tabs on mobile)
   api/auth/       # Magic link, verify, logout, session
   api/locations/  # Location CRUD
   api/categories/ # Category CRUD
   api/menu-items/ # Menu item CRUD + bulk import
-  api/orders/     # Order creation, status updates, available time slots
+  api/orders/     # Order creation, status updates, available time slots, public token lookup
   api/analytics/  # Aggregated analytics + day-end reports
   api/payment/    # Payment intent creation + status verification (polling)
   api/cron/       # Background jobs (payment sweep)
@@ -78,7 +79,8 @@ components/
   ui/             # shadcn/ui components
 emails/
   magic-link.tsx  # Magic link email template (react-email)
-  order-ready.tsx # Order-ready notification template
+  order-confirmation.tsx # Order confirmation with itemized receipt
+  order-ready.tsx # Order-ready notification template (with order page link)
 lib/
   auth.ts         # Session management (create, get, delete, cookies)
   db.ts           # Prisma client singleton

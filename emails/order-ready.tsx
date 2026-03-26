@@ -9,12 +9,14 @@ import {
   Section,
   Img,
   Hr,
+  Link,
 } from "@react-email/components";
 
 interface OrderReadyEmailProps {
   orderNumber: number;
   customerName: string;
   locationName: string;
+  orderPageUrl?: string;
   baseUrl?: string;
 }
 
@@ -22,6 +24,7 @@ export default function OrderReadyEmail({
   orderNumber,
   customerName,
   locationName,
+  orderPageUrl,
   baseUrl = "https://app.fair-order.de",
 }: OrderReadyEmailProps) {
   return (
@@ -59,6 +62,14 @@ export default function OrderReadyEmail({
             </Text>
           </Section>
 
+          {orderPageUrl && (
+            <Section style={ctaSection}>
+              <Link href={orderPageUrl} style={ctaLink}>
+                Bestellung ansehen
+              </Link>
+            </Section>
+          )}
+
           <Hr style={divider} />
 
           <Text style={footnote}>
@@ -74,6 +85,7 @@ OrderReadyEmail.PreviewProps = {
   orderNumber: 42,
   customerName: "Max",
   locationName: "Müllers Bäckerei",
+  orderPageUrl: "https://app.fair-order.de/order/k7Hx9mPq2vNr",
   baseUrl: "https://app.fair-order.de",
 } satisfies OrderReadyEmailProps;
 
@@ -129,6 +141,21 @@ const badge: React.CSSProperties = {
   fontWeight: 600,
   fontSize: "14px",
   margin: "0",
+};
+
+const ctaSection: React.CSSProperties = {
+  margin: "0 0 24px",
+  textAlign: "center" as const,
+};
+
+const ctaLink: React.CSSProperties = {
+  display: "inline-block",
+  backgroundColor: "#16A34A",
+  color: "#FFFFFF",
+  padding: "12px 32px",
+  fontWeight: 600,
+  fontSize: "14px",
+  textDecoration: "none",
 };
 
 const footnote: React.CSSProperties = {
