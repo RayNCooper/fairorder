@@ -13,7 +13,7 @@ Guests scan, order, kitchen prepares. Self-host in one command with Docker Compo
 ### For Operators
 - **Magic Link Auth** — Passwordless login via email, no passwords to manage
 - **AI Menu Import** — Upload a photo or paste a URL, AI extracts structured menu data (Google Gemini via Vercel AI SDK)
-- **Optional Prepayment** — Stripe integration for pay-before-pickup, or cash at the till
+- **Optional Prepayment** — Stripe or PayPal for pay-before-pickup, or cash at the till
 - **Pickup Time Slots** — Guests choose a 15-minute pickup window; operators cap orders per slot to smooth kitchen load
 - **Analytics Dashboard** — Orders/day, revenue/day, popular items, peak hours — plus day-end reports with print and CSV export
 - **Order-Ready Notifications** — Optional email notification when an order is marked READY
@@ -51,7 +51,7 @@ Guests scan, order, kitchen prepares. Self-host in one command with Docker Compo
 | **Auth** | Magic link (passwordless, httpOnly cookies) |
 | **AI** | Vercel AI SDK + Google Gemini (structured output) |
 | **Email** | Pluggable: Plunk, SMTP, or Console |
-| **Payment** | Pluggable: Stripe (prepayment) or Cash (default) |
+| **Payment** | Pluggable: Stripe, PayPal, or Cash (auto-detected from API keys) |
 | **Testing** | Vitest |
 
 ---
@@ -142,7 +142,7 @@ fairorder/
 │   ├── auth.ts           # Session management
 │   ├── db.ts             # Prisma client
 │   ├── email.ts          # Email provider (plunk/smtp/console)
-│   ├── payment.ts        # Payment provider (stripe/cash)
+│   ├── payment.ts        # Payment provider (stripe/paypal/cash)
 │   ├── menu-extraction.ts # AI menu extraction (gemini/console)
 │   ├── menu-crawler.ts   # URL crawler for menu import
 │   ├── storage.ts        # Image upload
@@ -203,12 +203,13 @@ Configure via `EMAIL_PROVIDER` environment variable:
 
 ## Payment Providers
 
-Configure via `PAYMENT_PROVIDER` environment variable:
+Payment providers are auto-detected from API keys. Per-location `acceptedPayments` controls which methods guests see.
 
 | Provider | Use case | Required env vars |
 |----------|----------|-------------------|
 | `cash` | Default — pay at the till | None |
-| `stripe` | Online prepayment | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
+| `stripe` | Card payments (also supports PayPal via Stripe Dashboard) | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
+| `paypal` | Native PayPal payments (no Stripe required) | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID` |
 
 ## Menu Extraction Providers
 

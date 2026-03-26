@@ -61,11 +61,11 @@ pnpm dev:local              # Starts without dotenvx
 
 All external services default to **no-config development mode** — no API keys needed:
 - **Email** → logs to terminal (`EMAIL_PROVIDER=console`)
-- **Payment** → cash at the till (`PAYMENT_PROVIDER=cash`)
+- **Payment** → cash at the till (no payment API keys needed)
 - **Menu extraction** → returns mock data (`MENU_EXTRACTION_PROVIDER=console`)
 - **Image storage** → logs to terminal (`STORAGE_PROVIDER=console`)
 
-To enable real providers (Stripe, Gemini, SMTP, MinIO), see `.env.example` for the required environment variables.
+To enable real providers (Stripe, PayPal, Gemini, SMTP, MinIO), see `.env.example` for the required environment variables.
 
 ## Available Commands
 
@@ -112,9 +112,10 @@ FairOrder uses an adapter pattern for external services. Each provider defaults 
 - `smtp` — Any SMTP server (use Mailpit locally, or Sendgrid/SES/etc. in production)
 - `plunk` — Plunk ESP API (used by the hosted version)
 
-### Payment (`PAYMENT_PROVIDER`)
-- `cash` — Pay at the till (default)
-- `stripe` — Stripe prepayment (requires `STRIPE_SECRET_KEY` and related env vars)
+### Payment (auto-detected from API keys)
+- `cash` — Pay at the till (default when no payment API keys are set)
+- `stripe` — Card payments, also supports PayPal via Stripe Dashboard (requires `STRIPE_SECRET_KEY`)
+- `paypal` — Native PayPal payments without Stripe (requires `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`)
 
 ### Menu Extraction (`MENU_EXTRACTION_PROVIDER`)
 - `console` — Returns mock data (default in development)
