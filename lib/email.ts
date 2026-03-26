@@ -11,6 +11,7 @@ import { render } from "@react-email/components";
 import { createElement } from "react";
 import MagicLinkEmail from "@/emails/magic-link";
 import OrderReadyEmail from "@/emails/order-ready";
+import OrderConfirmationEmail from "@/emails/order-confirmation";
 
 const PLUNK_BASE_URL = "https://next-api.useplunk.com";
 
@@ -148,19 +149,43 @@ export async function buildMagicLinkEmail(
 export async function buildOrderReadyEmail(
   orderNumber: number,
   customerName: string,
-  locationName: string
+  locationName: string,
+  orderPageUrl?: string
 ): Promise<{ subject: string; body: string }> {
   const html = await render(
     createElement(OrderReadyEmail, {
       orderNumber,
       customerName,
       locationName,
+      orderPageUrl,
       baseUrl: getBaseUrl(),
     })
   );
 
   return {
     subject: `Deine Bestellung #${orderNumber} ist bereit!`,
+    body: html,
+  };
+}
+
+export async function buildOrderConfirmationEmail(params: {
+  orderNumber: number;
+  customerName: string;
+  locationName: string;
+  items: { name: string; quantity: number; unitPrice: number }[];
+  total: number;
+  pickupTime: Date;
+  orderPageUrl: string;
+}): Promise<{ subject: string; body: string }> {
+  const html = await render(
+    createElement(OrderConfirmationEmail, {
+      ...params,
+      baseUrl: getBaseUrl(),
+    })
+  );
+
+  return {
+    subject: `Bestellbestätigung #${params.orderNumber}`,
     body: html,
   };
 }

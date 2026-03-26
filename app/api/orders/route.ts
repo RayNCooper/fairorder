@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { db } from "@/lib/db";
+import { sendEmail, buildOrderConfirmationEmail } from "@/lib/email";
+
+function generateOrderToken(): string {
+  return crypto.randomBytes(9).toString("base64url");
+}
 
 const MAX_CUSTOMER_NAME_LENGTH = 100;
 const MAX_CUSTOMER_NOTE_LENGTH = 500;
@@ -216,9 +222,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const token = generateOrderToken();
+
       return tx.order.create({
         data: {
           locationId: locationId as string,
+          token,
           orderNumber,
           customerName: String(customerName).trim(),
           customerNote: customerNote ? String(customerNote).trim() || null : null,
@@ -247,7 +256,40 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    return NextResponse.json(order, { status: 201 });
+    // Send confirmation email (fire-and-forget)
+    if (order.customerEmail) {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://app.fair-order.de";
+      const orderPageUrl = `${baseUrl}/order/${order.token}`;
+      const total = order.items.reduce(
+        (sum: number, item: { unitPrice: unknown; quantity: number }) =>
+          sum + Number(item.unitPrice) * item.quantity,
+        0
+      );
+
+      buildOrderConfirmationEmail({
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        locationName: location.name,
+        items: order.items.map((item: { menuItem: { name: string }; quantity: number; unitPrice: unknown }) => ({
+          name: item.menuItem.name,
+          quantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+        })),
+        total,
+        pickupTime: order.requestedPickupTime,
+        orderPageUrl,
+      })
+        .then(({ subject, body: emailBody }) =>
+          sendEmail({ to: order.customerEmail!, subject, body: emailBody })
+        )
+        .catch((err) =>
+          console.error(`Failed to send confirmation email for order ${order.id}:`, err)
+        );
+    }
+
+    // Return filtered response — exclude PII fields from the client response
+    const { customerNote: _note, customerEmail: _email, ...safeOrder } = order as Record<string, unknown>;
+    return NextResponse.json(safeOrder, { status: 201 });
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "MAX_ACTIVE_ORDERS") {
