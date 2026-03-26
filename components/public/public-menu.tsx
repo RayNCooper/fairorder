@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   StripePaymentForm,
   PaymentMethodSelector,
@@ -181,8 +182,11 @@ export function PublicMenu({
   const [errorMessage, setErrorMessage] = useState("");
   const [orderNumber, setOrderNumber] = useState<number | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderToken, setOrderToken] = useState<string | null>(null);
+  const orderTokenRef = useRef<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const router = useRouter();
 
   // Pickup time slots
   const [availableSlots, setAvailableSlots] = useState<{ time: string; label: string; available: boolean; remaining: number | null }[]>([]);
@@ -394,6 +398,8 @@ export function PublicMenu({
       const order = await res.json();
       setOrderNumber(order.orderNumber);
       setOrderId(order.id);
+      setOrderToken(order.token);
+      orderTokenRef.current = order.token;
 
       // If Stripe payment selected, create payment intent
       if (paymentMethod === "stripe" && stripeAvailable) {
@@ -416,13 +422,9 @@ export function PublicMenu({
         return;
       }
 
-      // Cash payment — immediate success
+      // Cash payment — redirect to order tracking page
       setOrderState("success");
-      setCart([]);
-      setCustomerName("");
-      setCustomerNote("");
-      setCustomerEmail("");
-      setSelectedSlot(null);
+      router.replace(`/order/${order.token}`);
     } catch {
       setErrorMessage("Verbindungsfehler. Bitte versuche es erneut.");
       setOrderState("error");
@@ -473,12 +475,10 @@ export function PublicMenu({
               orderId={orderId}
               onSuccess={() => {
                 setOrderState("success");
-                setCart([]);
-                setCustomerName("");
-                setCustomerNote("");
-                setCustomerEmail("");
-                setSelectedSlot(null);
-                setClientSecret(null);
+                const token = orderToken || orderTokenRef.current;
+                if (token) {
+                  router.replace(`/order/${token}`);
+                }
               }}
               onError={(msg) => {
                 setErrorMessage(msg);
@@ -492,8 +492,8 @@ export function PublicMenu({
     );
   }
 
-  // ── Success screen ──
-  if (orderState === "success" && orderNumber) {
+  // ── Redirect to order tracking page ──
+  if (orderState === "success") {
     return (
       <div className="min-h-dvh bg-[#FAFAF8]">
         <header className="border-b border-stone-200 bg-white px-4 py-6 text-center">
@@ -509,21 +509,9 @@ export function PublicMenu({
             <h2 className="text-xl font-extrabold text-stone-900">
               Bestellung aufgegeben!
             </h2>
-            <p className="font-mono text-3xl font-bold tabular-nums text-stone-900">
-              #{orderNumber}
-            </p>
             <p className="text-sm text-stone-500">
-              Deine Bestellnummer. Wir informieren dich, wenn sie bereit ist.
+              Weiterleitung zu deiner Bestellung...
             </p>
-            <button
-              className="mt-6 bg-stone-900 px-6 py-3 text-sm font-bold uppercase tracking-wider text-white hover:bg-stone-800"
-              onClick={() => {
-                setOrderState("idle");
-                setOrderNumber(null);
-              }}
-            >
-              Neue Bestellung
-            </button>
           </div>
         </main>
       </div>
