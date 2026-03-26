@@ -6,7 +6,7 @@ vi.mock("nodemailer", () => ({
   createTransport: vi.fn(),
 }))
 
-import { buildMagicLinkEmail, buildOrderReadyEmail } from "@/lib/email"
+import { buildMagicLinkEmail, buildOrderReadyEmail, buildOrderConfirmationEmail } from "@/lib/email"
 
 describe("buildMagicLinkEmail", () => {
   it("returns subject and HTML body", async () => {
@@ -56,5 +56,55 @@ describe("buildOrderReadyEmail", () => {
     const result = await buildOrderReadyEmail(1, '<script>alert("xss")</script>', "Location")
     // React-email auto-escapes — the script tag should not appear as raw HTML
     expect(result.body).not.toContain("<script>alert")
+  })
+
+  it("includes order page link when provided", async () => {
+    const result = await buildOrderReadyEmail(42, "Max", "Müllers Bäckerei", "https://app.fair-order.de/order/abc123")
+    expect(result.body).toContain("https://app.fair-order.de/order/abc123")
+    expect(result.body).toContain("Bestellung ansehen")
+  })
+})
+
+describe("buildOrderConfirmationEmail", () => {
+  const params = {
+    orderNumber: 42,
+    customerName: "Max",
+    locationName: "Mensa Uni Mainz",
+    items: [
+      { name: "Schnitzel", quantity: 2, unitPrice: 7.0 },
+      { name: "Apfelschorle", quantity: 1, unitPrice: 2.5 },
+    ],
+    total: 16.5,
+    pickupTime: new Date("2026-03-26T12:30:00Z"),
+    orderPageUrl: "https://app.fair-order.de/order/k7Hx9mPq2vNr",
+  }
+
+  it("returns subject with order number", async () => {
+    const result = await buildOrderConfirmationEmail(params)
+    expect(result.subject).toBe("Bestellbestätigung #42")
+  })
+
+  it("includes item names in body", async () => {
+    const result = await buildOrderConfirmationEmail(params)
+    expect(result.body).toContain("Schnitzel")
+    expect(result.body).toContain("Apfelschorle")
+  })
+
+  it("includes order page link", async () => {
+    const result = await buildOrderConfirmationEmail(params)
+    expect(result.body).toContain("https://app.fair-order.de/order/k7Hx9mPq2vNr")
+    expect(result.body).toContain("Bestellung verfolgen")
+  })
+
+  it("includes customer name and location", async () => {
+    const result = await buildOrderConfirmationEmail(params)
+    expect(result.body).toContain("Max")
+    expect(result.body).toContain("Mensa Uni Mainz")
+  })
+
+  it("renders valid HTML", async () => {
+    const result = await buildOrderConfirmationEmail(params)
+    expect(result.body).toContain("<!DOCTYPE html")
+    expect(result.body).toContain("</html>")
   })
 })

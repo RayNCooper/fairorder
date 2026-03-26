@@ -11,6 +11,11 @@ vi.mock("@/lib/db", () => ({
   },
 }))
 
+vi.mock("@/lib/email", () => ({
+  sendEmail: vi.fn().mockResolvedValue(true),
+  buildOrderConfirmationEmail: vi.fn().mockResolvedValue({ subject: "test", body: "test" }),
+}))
+
 import { POST } from "@/app/api/orders/route"
 import { db } from "@/lib/db"
 
@@ -62,7 +67,7 @@ describe("POST /api/orders", () => {
   it("accepts valid email", async () => {
     vi.mocked(db.location.findUnique).mockResolvedValue(validLocation as never)
     vi.mocked(db.menuItem.findMany).mockResolvedValue([validMenuItem] as never)
-    const mockOrder = { id: "ord-1", orderNumber: 1, items: [] }
+    const mockOrder = { id: "ord-1", orderNumber: 1, token: "abc123def456", items: [], customerEmail: "max@test.de" }
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
       const tx = {
         order: {
@@ -78,6 +83,9 @@ describe("POST /api/orders", () => {
       makeRequest({ ...validBody, customerEmail: "max@test.de" })
     )
     expect(res.status).toBe(201)
+    const data = await res.json()
+    expect(data.token).toBeDefined()
+    expect(typeof data.token).toBe("string")
   })
 
   it("returns 400 for pickup time in the past", async () => {
@@ -128,7 +136,7 @@ describe("POST /api/orders", () => {
   it("accepts valid future pickup time", async () => {
     vi.mocked(db.location.findUnique).mockResolvedValue(validLocation as never)
     vi.mocked(db.menuItem.findMany).mockResolvedValue([validMenuItem] as never)
-    const mockOrder = { id: "ord-1", orderNumber: 1, items: [] }
+    const mockOrder = { id: "ord-1", orderNumber: 1, token: "abc123def456", items: [] }
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
       const tx = {
         order: {
@@ -175,7 +183,7 @@ describe("POST /api/orders", () => {
     vi.mocked(db.location.findUnique).mockResolvedValue(validLocation as never)
     vi.mocked(db.menuItem.findMany).mockResolvedValue([validMenuItem] as never)
     let capturedData: Record<string, unknown> = {}
-    const mockOrder = { id: "ord-1", orderNumber: 1, items: [] }
+    const mockOrder = { id: "ord-1", orderNumber: 1, token: "abc123def456", items: [] }
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
       const tx = {
         order: {
