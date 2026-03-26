@@ -58,11 +58,11 @@ export async function POST(request: NextRequest) {
       orderBy: { sortOrder: "desc" },
     });
 
-    // Validate taxRate if provided (must be 7 or 19)
-    const taxRate = body.taxRate !== undefined ? Number(body.taxRate) : 7;
-    if (taxRate !== 7 && taxRate !== 19) {
+    // Validate vatRate if provided (must be 0, 7, or 19)
+    const vatRate = body.vatRate !== undefined ? Number(body.vatRate) : 7;
+    if (![0, 7, 19].includes(vatRate)) {
       return NextResponse.json(
-        { error: "Steuersatz muss 7 oder 19 sein." },
+        { error: "MwSt.-Satz muss 0, 7 oder 19 sein." },
         { status: 400 }
       );
     }
@@ -72,12 +72,11 @@ export async function POST(request: NextRequest) {
         name: body.name.trim(),
         description: body.description?.trim() || null,
         price: Number(body.price),
-        vatRate: [0, 7, 19].includes(Number(body.vatRate)) ? Number(body.vatRate) : 7,
+        vatRate,
         imageUrl: body.imageUrl?.trim() || null,
         categoryId: body.categoryId || null,
         locationId: location.id,
         isAvailable: body.isAvailable ?? true,
-        taxRate,
         sortOrder: (lastItem?.sortOrder ?? -1) + 1,
         allergens: body.allergens || [],
         dietaryTags: body.dietaryTags || [],

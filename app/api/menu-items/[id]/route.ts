@@ -115,17 +115,6 @@ export async function PUT(
       data.sortOrder = Number(body.sortOrder);
     }
 
-    if (body.taxRate !== undefined) {
-      const rate = Number(body.taxRate);
-      if (rate !== 7 && rate !== 19) {
-        return NextResponse.json(
-          { error: "Steuersatz muss 7 oder 19 sein." },
-          { status: 400 }
-        );
-      }
-      data.taxRate = rate;
-    }
-
     if (body.allergens !== undefined) {
       data.allergens = body.allergens;
     }
