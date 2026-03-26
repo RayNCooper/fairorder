@@ -13,7 +13,7 @@ describe("payment — cash provider", () => {
       currency: "eur",
       orderId: "order-1",
       customerName: "Max",
-    })
+    }, "cash")
     expect(result.success).toBe(true)
     expect(result.transactionId).toBe("cash_order-1")
     expect(result.clientSecret).toBeUndefined()
@@ -21,11 +21,12 @@ describe("payment — cash provider", () => {
 
   it("verifyPayment returns 'paid' for cash", async () => {
     const { verifyPayment } = await import("@/lib/payment")
-    const result = await verifyPayment("cash_order-1")
+    const result = await verifyPayment("cash_order-1", "cash")
     expect(result).toBe("paid")
   })
 
-  it("isStripeEnabled returns false for cash provider", async () => {
+  it("isStripeEnabled returns false when no STRIPE_SECRET_KEY", async () => {
+    delete process.env.STRIPE_SECRET_KEY
     const { isStripeEnabled } = await import("@/lib/payment")
     expect(isStripeEnabled()).toBe(false)
   })
@@ -37,7 +38,6 @@ describe("payment — stripe provider", () => {
 
   beforeEach(() => {
     vi.resetModules()
-    vi.stubEnv("PAYMENT_PROVIDER", "stripe")
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_xxx")
     mockCreate.mockReset()
     mockRetrieve.mockReset()
@@ -64,7 +64,7 @@ describe("payment — stripe provider", () => {
       currency: "eur",
       orderId: "order-2",
       customerName: "Lisa",
-    })
+    }, "stripe")
 
     expect(result.success).toBe(true)
     expect(result.transactionId).toBe("pi_123")
@@ -73,6 +73,7 @@ describe("payment — stripe provider", () => {
       expect.objectContaining({
         amount: 1500,
         currency: "eur",
+        automatic_payment_methods: { enabled: true },
         metadata: expect.objectContaining({ orderId: "order-2" }),
       })
     )
@@ -87,7 +88,7 @@ describe("payment — stripe provider", () => {
       currency: "eur",
       orderId: "order-3",
       customerName: "Test",
-    })
+    }, "stripe")
 
     expect(result.success).toBe(false)
     expect(result.error).toBe("Card declined")
@@ -97,38 +98,38 @@ describe("payment — stripe provider", () => {
     mockRetrieve.mockResolvedValue({ status: "succeeded" })
 
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("pi_123")).toBe("paid")
+    expect(await verifyPayment("pi_123", "stripe")).toBe("paid")
   })
 
   it("verifyPayment returns 'failed' for requires_payment_method", async () => {
     mockRetrieve.mockResolvedValue({ status: "requires_payment_method" })
 
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("pi_456")).toBe("failed")
+    expect(await verifyPayment("pi_456", "stripe")).toBe("failed")
   })
 
   it("verifyPayment returns 'failed' for canceled status", async () => {
     mockRetrieve.mockResolvedValue({ status: "canceled" })
 
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("pi_789")).toBe("failed")
+    expect(await verifyPayment("pi_789", "stripe")).toBe("failed")
   })
 
   it("verifyPayment returns 'pending' for processing status", async () => {
     mockRetrieve.mockResolvedValue({ status: "processing" })
 
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("pi_proc")).toBe("pending")
+    expect(await verifyPayment("pi_proc", "stripe")).toBe("pending")
   })
 
   it("verifyPayment returns 'pending' for requires_action status", async () => {
     mockRetrieve.mockResolvedValue({ status: "requires_action" })
 
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("pi_action")).toBe("pending")
+    expect(await verifyPayment("pi_action", "stripe")).toBe("pending")
   })
 
-  it("isStripeEnabled returns true when stripe provider + key set", async () => {
+  it("isStripeEnabled returns true when STRIPE_SECRET_KEY set", async () => {
     const { isStripeEnabled } = await import("@/lib/payment")
     expect(isStripeEnabled()).toBe(true)
   })
@@ -140,7 +141,6 @@ describe("payment — stripe provider edge cases", () => {
 
   beforeEach(() => {
     vi.resetModules()
-    vi.stubEnv("PAYMENT_PROVIDER", "stripe")
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_xxx")
     mockCreate.mockReset()
     mockRetrieve.mockReset()
@@ -167,7 +167,7 @@ describe("payment — stripe provider edge cases", () => {
       currency: "eur",
       orderId: "order-null",
       customerName: "Test",
-    })
+    }, "stripe")
 
     expect(result.success).toBe(true)
     expect(result.clientSecret).toBeUndefined()
@@ -177,7 +177,7 @@ describe("payment — stripe provider edge cases", () => {
     mockRetrieve.mockRejectedValue(new Error("Network error"))
 
     const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("pi_broken")).toBe("pending")
+    expect(await verifyPayment("pi_broken", "stripe")).toBe("pending")
   })
 
   it("passes custom metadata through to Stripe", async () => {
@@ -190,7 +190,7 @@ describe("payment — stripe provider edge cases", () => {
       orderId: "order-meta",
       customerName: "Meta",
       metadata: { tableNumber: "5" },
-    })
+    }, "stripe")
 
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -211,20 +211,20 @@ describe("payment — stripe provider edge cases", () => {
       currency: "eur",
       orderId: "x",
       customerName: "x",
-    })
+    }, "stripe")
 
     expect(result.success).toBe(false)
     expect(result.error).toBe("Zahlungsdienst nicht erreichbar.")
   })
 })
 
-describe("payment — default provider (no env var)", () => {
+describe("payment — legacy PAYMENT_PROVIDER fallback", () => {
   beforeEach(() => {
     vi.resetModules()
     delete process.env.PAYMENT_PROVIDER
   })
 
-  it("defaults to cash when PAYMENT_PROVIDER is not set", async () => {
+  it("defaults to cash when PAYMENT_PROVIDER is not set and no method param", async () => {
     const { createPaymentIntent } = await import("@/lib/payment")
     const result = await createPaymentIntent({
       amount: 100,
@@ -236,28 +236,60 @@ describe("payment — default provider (no env var)", () => {
     expect(result.transactionId).toBe("cash_order-default")
   })
 
-  it("isStripeEnabled returns false when no provider set", async () => {
+  it("isStripeEnabled returns false when no STRIPE_SECRET_KEY", async () => {
+    delete process.env.STRIPE_SECRET_KEY
     const { isStripeEnabled } = await import("@/lib/payment")
     expect(isStripeEnabled()).toBe(false)
   })
 })
 
-describe("payment — verifyPayment unknown provider", () => {
+describe("payment — auto-detection helpers", () => {
   beforeEach(() => {
     vi.resetModules()
-    vi.stubEnv("PAYMENT_PROVIDER", "unknown-provider")
+    delete process.env.STRIPE_SECRET_KEY
+    delete process.env.PAYPAL_CLIENT_ID
+    delete process.env.PAYPAL_CLIENT_SECRET
   })
 
-  it("returns 'failed' for unknown provider", async () => {
-    const { verifyPayment } = await import("@/lib/payment")
-    expect(await verifyPayment("txn_123")).toBe("failed")
+  it("isPayPalEnabled returns true when both keys set", async () => {
+    vi.stubEnv("PAYPAL_CLIENT_ID", "test-id")
+    vi.stubEnv("PAYPAL_CLIENT_SECRET", "test-secret")
+    const { isPayPalEnabled } = await import("@/lib/payment")
+    expect(isPayPalEnabled()).toBe(true)
+  })
+
+  it("isPayPalEnabled returns false when PAYPAL_CLIENT_ID missing", async () => {
+    vi.stubEnv("PAYPAL_CLIENT_SECRET", "test-secret")
+    const { isPayPalEnabled } = await import("@/lib/payment")
+    expect(isPayPalEnabled()).toBe(false)
+  })
+
+  it("isPayPalEnabled returns false when PAYPAL_CLIENT_SECRET missing", async () => {
+    vi.stubEnv("PAYPAL_CLIENT_ID", "test-id")
+    const { isPayPalEnabled } = await import("@/lib/payment")
+    expect(isPayPalEnabled()).toBe(false)
+  })
+
+  it("isStripeEnabled returns true when STRIPE_SECRET_KEY set", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_xxx")
+    const { isStripeEnabled } = await import("@/lib/payment")
+    expect(isStripeEnabled()).toBe(true)
+  })
+})
+
+describe("payment — centsToDecimal", () => {
+  it("converts cents to decimal string", async () => {
+    const { centsToDecimal } = await import("@/lib/payment")
+    expect(centsToDecimal(1250)).toBe("12.50")
+    expect(centsToDecimal(999)).toBe("9.99")
+    expect(centsToDecimal(50)).toBe("0.50")
+    expect(centsToDecimal(0)).toBe("0.00")
   })
 })
 
 describe("payment — missing STRIPE_SECRET_KEY", () => {
   beforeEach(() => {
     vi.resetModules()
-    vi.stubEnv("PAYMENT_PROVIDER", "stripe")
     delete process.env.STRIPE_SECRET_KEY
 
     vi.doMock("stripe", () => ({
@@ -271,26 +303,23 @@ describe("payment — missing STRIPE_SECRET_KEY", () => {
 
   it("returns error when STRIPE_SECRET_KEY missing", async () => {
     const { createPaymentIntent } = await import("@/lib/payment")
-    // The stripe provider catches the error and returns { success: false }
     const result = await createPaymentIntent({
       amount: 100,
       currency: "eur",
       orderId: "x",
       customerName: "x",
-    })
-    // getStripeClient throws but createStripeIntent catches it
+    }, "stripe")
     expect(result.success).toBe(false)
     expect(result.error).toContain("STRIPE_SECRET_KEY")
   })
 })
 
-describe("payment — unknown provider", () => {
+describe("payment — unknown method param", () => {
   beforeEach(() => {
     vi.resetModules()
-    vi.stubEnv("PAYMENT_PROVIDER", "paypal")
   })
 
-  it("throws for unknown provider", async () => {
+  it("throws for truly unknown method", async () => {
     const { createPaymentIntent } = await import("@/lib/payment")
     await expect(
       createPaymentIntent({
@@ -298,7 +327,12 @@ describe("payment — unknown provider", () => {
         currency: "eur",
         orderId: "x",
         customerName: "x",
-      })
-    ).rejects.toThrow("Unknown PAYMENT_PROVIDER")
+      }, "bitcoin" as any)
+    ).rejects.toThrow("Unknown payment method")
+  })
+
+  it("verifyPayment returns 'failed' for unknown method", async () => {
+    const { verifyPayment } = await import("@/lib/payment")
+    expect(await verifyPayment("txn_123", "bitcoin" as any)).toBe("failed")
   })
 })

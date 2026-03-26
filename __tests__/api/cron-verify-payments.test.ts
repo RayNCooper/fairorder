@@ -75,6 +75,7 @@ describe("GET /api/cron/verify-payments", () => {
       select: {
         id: true,
         paymentIntentId: true,
+        paymentMethod: true,
       },
       take: 50,
       orderBy: { createdAt: "asc" },
@@ -89,9 +90,9 @@ describe("GET /api/cron/verify-payments", () => {
 
   it("confirms paid orders and marks failed ones", async () => {
     mockFindMany.mockResolvedValue([
-      { id: "order-paid", paymentIntentId: "pi_paid" },
-      { id: "order-failed", paymentIntentId: "pi_failed" },
-      { id: "order-pending", paymentIntentId: "pi_pending" },
+      { id: "order-paid", paymentIntentId: "pi_paid", paymentMethod: "stripe" },
+      { id: "order-failed", paymentIntentId: "pi_failed", paymentMethod: "stripe" },
+      { id: "order-pending", paymentIntentId: "pi_pending", paymentMethod: "stripe" },
     ])
 
     mockVerifyPayment.mockImplementation((id: string) => {
@@ -134,8 +135,8 @@ describe("GET /api/cron/verify-payments", () => {
 
   it("continues processing other orders when one fails", async () => {
     mockFindMany.mockResolvedValue([
-      { id: "order-error", paymentIntentId: "pi_error" },
-      { id: "order-ok", paymentIntentId: "pi_ok" },
+      { id: "order-error", paymentIntentId: "pi_error", paymentMethod: "stripe" },
+      { id: "order-ok", paymentIntentId: "pi_ok", paymentMethod: "stripe" },
     ])
 
     mockVerifyPayment.mockImplementation((id: string) => {
