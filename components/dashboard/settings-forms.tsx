@@ -529,6 +529,10 @@ function PaymentMethodsForm({ location }: { location: LocationData }) {
   const [acceptStripe, setAcceptStripe] = useState(
     location.acceptedPayments.includes("stripe")
   );
+  const [acceptPayPal, setAcceptPayPal] = useState(
+    location.acceptedPayments.includes("paypal")
+  );
+  const paypalConfigured = !!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -540,6 +544,7 @@ function PaymentMethodsForm({ location }: { location: LocationData }) {
     const acceptedPayments: string[] = [];
     if (acceptCash) acceptedPayments.push("cash");
     if (acceptStripe) acceptedPayments.push("stripe");
+    if (acceptPayPal) acceptedPayments.push("paypal");
 
     if (acceptedPayments.length === 0) {
       setMessage({ type: "error", text: "Mindestens eine Zahlungsart muss aktiviert sein." });
@@ -596,6 +601,19 @@ function PaymentMethodsForm({ location }: { location: LocationData }) {
             <p className="text-xs text-muted-foreground">Kreditkarte, Apple Pay, Google Pay</p>
           </div>
         </div>
+        {paypalConfigured && (
+          <div className="flex items-center gap-3">
+            <Switch
+              id="accept-paypal"
+              checked={acceptPayPal}
+              onCheckedChange={setAcceptPayPal}
+            />
+            <div className="space-y-0.5">
+              <Label htmlFor="accept-paypal" className="text-sm">PayPal</Label>
+              <p className="text-xs text-muted-foreground">Zahlung per PayPal-Konto</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {message && (

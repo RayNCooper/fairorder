@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   StripePaymentForm,
+  PayPalPaymentForm,
   PaymentMethodSelector,
+  getPayPalPendingRecovery,
   type PaymentMethod,
 } from "./payment-form";
 
@@ -160,7 +162,7 @@ function formatHoursOverview(
 
 // ── Main Component ───────────────────────────────────
 
-type OrderState = "idle" | "cart" | "submitting" | "paying" | "success" | "error";
+type OrderState = "idle" | "cart" | "submitting" | "paying" | "paying-paypal" | "paypal-pending" | "success" | "error";
 
 export function PublicMenu({
   locationId,
@@ -190,6 +192,41 @@ export function PublicMenu({
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   const stripeAvailable = paymentEnabled && acceptedPayments.includes("stripe");
+
+  // Recover pending PayPal payment after mobile redirect
+  useEffect(() => {
+    const pending = getPayPalPendingRecovery();
+    if (pending && pending.locationId === locationId) {
+      setOrderId(pending.orderId);
+      // Attempt to capture the payment
+      fetch("/api/payment/capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: pending.orderId,
+          paypalOrderId: pending.paypalOrderId,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          try { sessionStorage.removeItem("fairorder_paypal_pending"); } catch {}
+          if (data.status === "paid") {
+            setOrderState("success");
+            // Fetch the order number
+            fetch(`/api/orders/${pending.orderId}`)
+              .then((r) => r.ok ? r.json() : null)
+              .then((o) => { if (o?.orderNumber) setOrderNumber(o.orderNumber); })
+              .catch(() => {});
+          } else if (data.status === "pending") {
+            setOrderState("paypal-pending");
+          }
+          // "failed" — just show idle, the payment didn't go through
+        })
+        .catch(() => {
+          try { sessionStorage.removeItem("fairorder_paypal_pending"); } catch {}
+        });
+    }
+  }, [locationId]);
 
   // Fetch available pickup time slots when cart opens
   const fetchSlots = useCallback(async () => {
@@ -416,6 +453,12 @@ export function PublicMenu({
         return;
       }
 
+      // If PayPal payment selected, show PayPal buttons
+      if (paymentMethod === "paypal") {
+        setOrderState("paying-paypal");
+        return;
+      }
+
       // Cash payment — immediate success
       setOrderState("success");
       setCart([]);
@@ -486,6 +529,87 @@ export function PublicMenu({
                 setClientSecret(null);
               }}
             />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ── PayPal payment screen ──
+  if (orderState === "paying-paypal" && orderId) {
+    return (
+      <div className="min-h-dvh bg-[#FAFAF8]">
+        <header className="border-b border-stone-200 bg-white px-4 py-6 text-center">
+          <h1 className="text-2xl font-extrabold tracking-tight text-stone-900">
+            {locationName}
+          </h1>
+        </header>
+        <main className="mx-auto max-w-md px-4 py-8">
+          <div className="space-y-4">
+            <h2 className="text-lg font-extrabold text-stone-900">PayPal-Zahlung</h2>
+            <p className="text-sm text-stone-500">
+              Bestellung #{orderNumber} &mdash; {formatPrice(cartTotal)}&nbsp;&euro;
+            </p>
+            <PayPalPaymentForm
+              locationId={locationId}
+              orderId={orderId}
+              amount={Math.round(cartTotal * 100)}
+              onSuccess={() => {
+                setOrderState("success");
+                setCart([]);
+                setCustomerName("");
+                setCustomerNote("");
+                setCustomerEmail("");
+                setSelectedSlot(null);
+              }}
+              onError={(msg) => {
+                setErrorMessage(msg);
+                setOrderState("error");
+              }}
+              onPending={() => {
+                setOrderState("paypal-pending");
+              }}
+            />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ── PayPal pending screen (compliance hold) ──
+  if (orderState === "paypal-pending" && orderNumber) {
+    return (
+      <div className="min-h-dvh bg-[#FAFAF8]">
+        <header className="border-b border-stone-200 bg-white px-4 py-6 text-center">
+          <h1 className="text-2xl font-extrabold tracking-tight text-stone-900">
+            {locationName}
+          </h1>
+        </header>
+        <main className="mx-auto max-w-md px-4 py-8">
+          <div className="space-y-4 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center border-2 border-amber-500 bg-amber-50">
+              <span className="text-2xl text-amber-600">&#9203;</span>
+            </div>
+            <h2 className="text-lg font-extrabold text-stone-900">Bestellung aufgegeben</h2>
+            <p className="font-mono text-3xl font-bold tabular-nums text-stone-900">
+              #{orderNumber}
+            </p>
+            <p className="text-sm text-stone-500">
+              Zahlung wird verarbeitet &mdash; du erhältst eine Benachrichtigung.
+            </p>
+            <button
+              className="mt-4 w-full border border-stone-300 bg-white px-4 py-3 text-sm font-bold text-stone-700 hover:bg-stone-50"
+              onClick={() => {
+                setOrderState("idle");
+                setCart([]);
+                setCustomerName("");
+                setCustomerNote("");
+                setCustomerEmail("");
+                setSelectedSlot(null);
+              }}
+            >
+              Neue Bestellung
+            </button>
           </div>
         </main>
       </div>
